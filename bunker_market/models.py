@@ -88,3 +88,20 @@ class RefreshRun(db.Model):
     status = db.Column(db.String(32), nullable=False, default="running")
     inserted_count = db.Column(db.Integer, nullable=False, default=0)
     error_summary = db.Column(db.String(1000))
+
+
+class UploadState(db.Model):
+    __tablename__ = "upload_states"
+
+    id = db.Column(db.Integer, primary_key=True, default=1)
+    file_name = db.Column(db.String(255))
+    sheet_name = db.Column(db.String(255))
+    uploaded_at = db.Column(db.DateTime)
+    status = db.Column(db.String(32), nullable=False, default="waiting")
+    layout = db.Column(db.String(40))
+    rows_received = db.Column(db.Integer, nullable=False, default=0)
+    ports_received = db.Column(db.Integer, nullable=False, default=0)
+    skipped_cells = db.Column(db.Integer, nullable=False, default=0)
+    formula_cache_missing = db.Column(db.Integer, nullable=False, default=0)
+    excel_errors = db.Column(db.Integer, nullable=False, default=0)
+    last_error = db.Column(db.String(1000))

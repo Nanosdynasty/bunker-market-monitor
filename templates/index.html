@@ -59,6 +59,7 @@
             <div class="provider-toggles" aria-label="Providers">
               <label><input type="checkbox" data-provider="bulugo" checked><span class="series-key bulugo"></span>Bulugo</label>
               <label><input type="checkbox" data-provider="oilpriceapi" checked><span class="series-key oilpriceapi"></span>OilPriceAPI</label>
+              <label data-provider-control="excel" hidden><input type="checkbox" data-provider="excel" checked><span class="series-key excel"></span>Excel</label>
             </div>
             <div class="segmented" aria-label="Time range">
               <button class="segment" data-range="24H">24H</button>
@@ -86,7 +87,7 @@
         <div class="table-title"><div><h2>Provider comparison</h2><p>Spread is the absolute difference between available providers.</p></div></div>
         <div class="table-scroll">
           <table id="compare-table"><caption class="sr-only">Bunker price comparison by port, fuel grade, and provider</caption>
-            <thead><tr><th data-sort="port">Port</th><th data-sort="grade">Grade</th><th class="numeric" data-sort="bulugo">Bulugo</th><th class="numeric" data-sort="oilpriceapi">OilPriceAPI</th><th class="numeric" data-sort="spread">Spread</th><th data-sort="freshness">Freshness</th></tr></thead>
+            <thead><tr><th data-sort="port">Port</th><th data-sort="grade">Grade</th><th class="numeric" data-sort="bulugo">Bulugo</th><th class="numeric" data-sort="oilpriceapi">OilPriceAPI</th><th class="numeric" data-sort="excel">Excel upload</th><th class="numeric" data-sort="spread">Spread</th><th data-sort="freshness">Freshness</th></tr></thead>
             <tbody></tbody>
           </table>
         </div>
@@ -95,6 +96,20 @@
 
     <section id="sources-panel" class="tab-panel" data-panel="sources" hidden>
       <div class="page-heading"><div><h1>Sources</h1><p>Connection health, request budgets, provenance, and normalized observations.</p></div></div>
+      <section class="card upload-card" aria-labelledby="excel-upload-title">
+        <div class="upload-copy">
+          <span class="upload-icon" aria-hidden="true">X</span>
+          <div><h2 id="excel-upload-title">Upload an Excel price file</h2><p>Choose an `.xlsx` workbook with port, fuel grade, price, and optional timestamp fields. Matrix-style port columns are also detected.</p></div>
+        </div>
+        <form id="excel-upload-form" class="upload-form" enctype="multipart/form-data">
+          <label class="file-picker"><span>Workbook</span><input id="excel-file" name="file" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" required></label>
+          <button id="excel-upload-button" class="button button-primary" type="submit">Upload and import</button>
+        </form>
+        <div id="upload-diagnostics" class="upload-diagnostics" aria-live="polite">
+          <p><strong>No workbook uploaded yet.</strong> The raw file is deleted after processing; normalized prices remain in this app’s database.</p>
+        </div>
+        <p class="upload-note">An upload is a snapshot. If the workbook changes on your computer, upload it again. A hosted app cannot continuously watch a folder on your PC.</p>
+      </section>
       <div id="source-cards" class="source-grid"></div>
       <section class="card processing-card">
         <div class="table-title"><div><h2>Processing details</h2><p id="last-run-copy">No provider refresh has run yet.</p></div><span id="last-run-status" class="status-chip">Waiting</span></div>

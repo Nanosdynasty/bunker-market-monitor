@@ -20,6 +20,11 @@
     "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;",
   }[char]));
   const csrf = $("meta[name='csrf-token']").content;
+  const providerMeta = {
+    bulugo: { name: "Bulugo", color: "--brand", dash: [] },
+    oilpriceapi: { name: "OilPriceAPI", color: "--positive", dash: [7, 5] },
+    excel: { name: "Excel", color: "--warning", dash: [2, 4] },
+  };
 
   function announce(message) {
     $("#live-message").textContent = message;
@@ -65,7 +70,7 @@
 
   function statusText(status) {
     return ({
-      current: "Current", demo: "Demo data", stale: "Stale", partial: "Partial",
+      current: "Current", demo: "Demo data", mixed: "Excel + demo", stale: "Stale", partial: "Partial",
       rate_limited: "Rate limited", unavailable: "Unavailable", not_configured: "Not configured",
       complete: "Completed", failed: "Failed", running: "Running", cooldown: "Cooldown",
     })[status] || "Waiting";
@@ -99,15 +104,15 @@
       grid.innerHTML = `<div class="empty-state"><strong>No price observations yet.</strong><br>Configure at least one provider key, or enable demo mode.</div>`;
       return;
     }
+    const providers = payload.providers || [];
     grid.innerHTML = payload.ports.map((port) => `
       <button type="button" class="port-card ${port.code === payload.selectedPort.code ? "is-selected" : ""}" data-port="${esc(port.code)}" aria-pressed="${port.code === payload.selectedPort.code}">
         <span class="port-card-head"><span><h3>${esc(port.name)}</h3><span class="port-country">${esc(port.country)}</span></span><span class="muted" aria-hidden="true">›</span></span>
         ${port.grades.map((row) => `
           <span class="fuel-row">
-            <span class="fuel-meta"><span>${esc(row.grade)}</span><span>${row.providers.bulugo && row.providers.oilpriceapi ? "2 sources" : "Partial"}</span></span>
-            <span class="provider-values">
-              <span class="provider-value">${providerCell(row.providers.bulugo, "Bulugo")}</span>
-              <span class="provider-value">${providerCell(row.providers.oilpriceapi, "OilPriceAPI")}</span>
+            <span class="fuel-meta"><span>${esc(row.grade)}</span><span>${Object.values(row.providers).filter(Boolean).length} of ${providers.length} sources</span></span>
+            <span class="provider-values" style="--provider-count:${Math.max(providers.length, 1)}">
+              ${providers.map((provider) => `<span class="provider-value">${providerCell(row.providers[provider.id], provider.name)}</span>`).join("")}
             </span>
           </span>`).join("")}
       </button>`).join("");
@@ -130,24 +135,27 @@
   }
 
   function renderChart(payload) {
+    const activeProviderIds = new Set((payload.providers || []).map((provider) => provider.id));
+    $$('[data-provider-control]').forEach((control) => { control.hidden = !activeProviderIds.has(control.dataset.providerControl); });
     const allTimes = [...new Set(payload.history.flatMap((series) => series.points.map((point) => point.time)))].sort();
     const datasets = payload.history.map((series) => {
       const byTime = new Map(series.points.map((point) => [point.time, point.price]));
-      const isBulugo = series.provider === "bulugo";
+      const meta = providerMeta[series.provider] || { name: series.provider, color: "--neutral", dash: [] };
+      const checkbox = $(`input[data-provider='${series.provider}']`);
       return {
-        label: isBulugo ? "Bulugo" : "OilPriceAPI",
+        label: meta.name,
         provider: series.provider,
         data: allTimes.map((time) => byTime.has(time) ? byTime.get(time) : null),
-        borderColor: isBulugo ? css("--brand") : css("--positive"),
-        backgroundColor: isBulugo ? css("--brand") : css("--positive"),
-        borderDash: isBulugo ? [] : [7, 5],
+        borderColor: css(meta.color),
+        backgroundColor: css(meta.color),
+        borderDash: meta.dash,
         borderWidth: 2,
         pointRadius: 2.5,
         pointHoverRadius: 6,
         pointHitRadius: 12,
         tension: .24,
         spanGaps: false,
-        hidden: !$( `input[data-provider='${series.provider}']`).checked,
+        hidden: checkbox ? !checkbox.checked : false,
       };
     });
     const labels = allTimes.map((time) => formatDate(time, false));
@@ -195,10 +203,12 @@
       renderCards(payload);
       if (payload.selectedPort) renderChart(payload);
       $("#dashboard-subtitle").textContent = `${payload.ports.length} monitored hubs · Updated ${formatDate(payload.generatedAt)}`;
-      $("#demo-badge").hidden = payload.mode !== "demo";
+      const badge = $("#demo-badge");
+      badge.hidden = payload.mode === "live";
+      badge.textContent = payload.mode === "mixed" ? "Includes demo data" : "Demo data";
       const status = $("#connection-status");
-      status.className = `status-chip ${payload.mode === "demo" ? "status-demo" : "status-current"}`;
-      status.innerHTML = `<span class="status-dot"></span>${payload.mode === "demo" ? "Demo data" : "Live providers"}`;
+      status.className = `status-chip ${payload.mode === "live" ? "status-current" : "status-demo"}`;
+      status.innerHTML = `<span class="status-dot"></span>${payload.mode === "mixed" ? "Excel + demo" : payload.mode === "demo" ? "Demo data" : "Live sources"}`;
       if (!quiet) announce("Dashboard updated");
     } catch (error) {
       announce(`Dashboard refresh failed. Previous values remain visible. ${error.message}`);
@@ -221,15 +231,17 @@
     const rows = state.comparison.filter((row) => (!grade || row.grade === grade) && (!search || `${row.port} ${row.country}`.toLowerCase().includes(search)));
     const { key, direction } = state.sort;
     rows.sort((a, b) => {
-      const get = (row) => key === "bulugo" || key === "oilpriceapi" ? row.providers[key]?.price ?? -Infinity : key === "freshness" ? row.providers.bulugo?.sourceTime || row.providers.oilpriceapi?.sourceTime || "" : row[key] ?? "";
+      const get = (row) => ["bulugo", "oilpriceapi", "excel"].includes(key) ? row.providers[key]?.price ?? -Infinity : key === "freshness" ? Object.values(row.providers).map((value) => value?.sourceTime || "").sort().pop() : row[key] ?? "";
       return String(get(a)).localeCompare(String(get(b)), undefined, { numeric: true }) * direction;
     });
     $("#compare-count").textContent = `${rows.length} comparisons`;
     $("#compare-table tbody").innerHTML = rows.map((row) => {
-      const b = row.providers.bulugo, o = row.providers.oilpriceapi;
-      const newest = [b?.sourceTime, o?.sourceTime].filter(Boolean).sort().pop();
-      const fresh = [b?.freshness, o?.freshness].includes("stale") ? "stale" : b && o ? "current" : "partial";
-      return `<tr><td><strong>${esc(row.port)}</strong><span class="cell-sub">${esc(row.country)}</span></td><td>${esc(row.grade)}</td><td class="numeric">${b ? `$${b.price.toFixed(2)}<span class="cell-sub">${ageLabel(b.sourceTime)}</span>` : "—"}</td><td class="numeric">${o ? `$${o.price.toFixed(2)}<span class="cell-sub">${ageLabel(o.sourceTime)}</span>` : "—"}</td><td class="numeric">${row.spread == null ? "—" : `$${row.spread.toFixed(2)}<span class="cell-sub">${row.spreadPct.toFixed(2)}%</span>`}</td><td><span class="status-chip ${statusClass(fresh)}">${statusText(fresh)}</span><span class="cell-sub">${ageLabel(newest)}</span></td></tr>`;
+      const b = row.providers.bulugo, o = row.providers.oilpriceapi, x = row.providers.excel;
+      const values = [b, o, x].filter(Boolean);
+      const newest = values.map((value) => value.sourceTime).filter(Boolean).sort().pop();
+      const fresh = values.some((value) => value.freshness === "stale") ? "stale" : values.length >= 2 ? "current" : "partial";
+      const valueCell = (value) => value ? `$${value.price.toFixed(2)}<span class="cell-sub">${ageLabel(value.sourceTime)}</span>` : "—";
+      return `<tr><td><strong>${esc(row.port)}</strong><span class="cell-sub">${esc(row.country)}</span></td><td>${esc(row.grade)}</td><td class="numeric">${valueCell(b)}</td><td class="numeric">${valueCell(o)}</td><td class="numeric">${valueCell(x)}</td><td class="numeric">${row.spread == null ? "—" : `$${row.spread.toFixed(2)}<span class="cell-sub">${row.spreadPct.toFixed(2)}%</span>`}</td><td><span class="status-chip ${statusClass(fresh)}">${statusText(fresh)}</span><span class="cell-sub">${ageLabel(newest)}</span></td></tr>`;
     }).join("");
   }
 
@@ -238,20 +250,61 @@
       const payload = await api("/api/sources");
       $("#source-cards").innerHTML = payload.providers.map((provider) => `
         <article class="card source-card">
-          <div class="source-card-head"><div><h2>${esc(provider.name)}</h2><p class="muted">${provider.configured ? "API key configured" : provider.status === "demo" ? "Using labelled fixture data" : "API key required"}</p></div><span class="status-chip ${statusClass(provider.status)}">${statusText(provider.status)}</span></div>
+          <div class="source-card-head"><div><h2>${esc(provider.name)}</h2><p class="muted">${provider.id === "excel" ? "Uploaded workbook snapshot" : provider.configured ? "API key configured" : provider.status === "demo" ? "Using labelled fixture data" : "API key required"}</p></div><span class="status-chip ${statusClass(provider.status)}">${statusText(provider.status)}</span></div>
           <div class="source-metrics">
             <div><span class="metric-label">Last success</span><span class="metric-value">${formatDate(provider.lastSuccess)}</span></div>
-            <div><span class="metric-label">Requests today</span><span class="metric-value">${provider.requestsToday} / ${provider.dailyQuota}</span></div>
+            <div><span class="metric-label">${provider.id === "excel" ? "Source" : "Requests today"}</span><span class="metric-value">${provider.id === "excel" ? "Manual upload" : `${provider.requestsToday} / ${provider.dailyQuota}`}</span></div>
             <div><span class="metric-label">Records</span><span class="metric-value">${provider.recordsLastRun}</span></div>
             <div><span class="metric-label">Ports</span><span class="metric-value">${provider.portsLastRun}</span></div>
           </div>${provider.lastError ? `<p class="source-error">${esc(provider.lastError)}</p>` : ""}
         </article>`).join("");
+      renderUploadDiagnostics(payload.upload);
       const run = payload.lastRun;
       $("#last-run-copy").textContent = run ? `${formatDate(run.startedAt)} · ${run.inserted} new observations${run.error ? ` · ${run.error}` : ""}` : "No provider refresh has run yet.";
       $("#last-run-status").className = `status-chip ${statusClass(run?.status)}`;
       $("#last-run-status").textContent = statusText(run?.status);
       $("#source-table tbody").innerHTML = payload.preview.map((row) => `<tr><td>${esc(row.provider)}</td><td><strong>${esc(row.port)}</strong><span class="cell-sub">${esc(row.portCode)}</span></td><td>${esc(row.grade)}</td><td class="numeric">$${row.price.toFixed(2)} ${esc(row.currency)}/${esc(row.unit)}</td><td>${formatDate(row.sourceTime)}</td><td>${formatDate(row.retrievedAt)}</td><td><span class="status-chip ${statusClass(row.freshness)}">${statusText(row.freshness)}</span></td><td>${esc(row.sourceLabel)}</td></tr>`).join("");
     } catch (error) { announce(`Source diagnostics failed: ${error.message}`); }
+  }
+
+  function renderUploadDiagnostics(upload) {
+    const target = $("#upload-diagnostics");
+    if (!upload) {
+      target.innerHTML = "<p><strong>No workbook uploaded yet.</strong> The raw file is deleted after processing; normalized prices remain in this app’s database.</p>";
+      return;
+    }
+    target.innerHTML = `<dl>
+      <div><dt>File</dt><dd>${esc(upload.fileName || "Previous data retained")}</dd></div>
+      <div><dt>Worksheet</dt><dd>${esc(upload.worksheet || "—")}</dd></div>
+      <div><dt>Uploaded</dt><dd>${formatDate(upload.uploadedAt)}</dd></div>
+      <div><dt>Layout</dt><dd>${esc(upload.layout || "—")}</dd></div>
+      <div><dt>Observations</dt><dd>${upload.observations}</dd></div>
+      <div><dt>Ports</dt><dd>${upload.ports}</dd></div>
+    </dl>${upload.formulaCacheMissing || upload.excelErrors || upload.skippedCells ? `<p class="source-error">Warnings: ${upload.skippedCells} skipped values, ${upload.formulaCacheMissing} formulas without saved results, ${upload.excelErrors} Excel errors.</p>` : ""}${upload.lastError ? `<p class="source-error">Last import failed: ${esc(upload.lastError)} Previous Excel data remains visible.</p>` : ""}`;
+  }
+
+  async function uploadExcel(event) {
+    event.preventDefault();
+    const input = $("#excel-file");
+    if (!input.files.length) return;
+    const button = $("#excel-upload-button");
+    const form = new FormData();
+    form.append("file", input.files[0]);
+    button.disabled = true;
+    button.textContent = "Processing…";
+    announce("Uploading and processing the Excel workbook");
+    try {
+      const result = await api("/api/uploads/excel", { method: "POST", headers: { "X-CSRF-Token": csrf }, body: form });
+      input.value = "";
+      await Promise.all([loadDashboard(), loadCompare(), loadSources()]);
+      announce(`${result.fileName} imported: ${result.observations} observations from ${result.worksheet}`);
+    } catch (error) {
+      announce(`Excel upload failed. Previous data remains visible. ${error.message}`);
+      await loadSources();
+    } finally {
+      button.disabled = false;
+      button.textContent = "Upload and import";
+    }
   }
 
   async function refreshNow() {
@@ -300,6 +353,7 @@
     }));
     $("#compare-grade").addEventListener("change", renderComparison);
     $("#compare-search").addEventListener("input", renderComparison);
+    $("#excel-upload-form").addEventListener("submit", uploadExcel);
     $$("#compare-table th[data-sort]").forEach((header) => header.addEventListener("click", () => {
       const key = header.dataset.sort;
       state.sort.direction = state.sort.key === key ? -state.sort.direction : 1;

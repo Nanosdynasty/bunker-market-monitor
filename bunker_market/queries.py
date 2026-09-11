@@ -3,10 +3,11 @@ from datetime import timedelta
 
 from flask import current_app
 
-from .models import Observation, Port, ProviderState, RefreshRun, utcnow
+from .models import Observation, Port, ProviderState, RefreshRun, UploadState, db, utcnow
 
 
-PROVIDER_ORDER = ["bulugo", "oilpriceapi"]
+PROVIDER_ORDER = ["bulugo", "oilpriceapi", "excel"]
+PROVIDER_NAMES = {"bulugo": "Bulugo", "oilpriceapi": "OilPriceAPI", "excel": "Excel upload"}
 GRADES = ["VLSFO", "HSFO", "MGO"]
 
 
@@ -82,12 +83,14 @@ def dashboard_payload(port_code=None, grade="VLSFO", range_name="7D"):
     delta_map = {"24H": timedelta(hours=24), "7D": timedelta(days=7), "30D": timedelta(days=30)}
     cutoff = utcnow() - delta_map[range_name] if range_name in delta_map else None
 
+    observed_providers = {key[2] for key in grouped}
+    active_providers = [provider for provider in PROVIDER_ORDER if provider in observed_providers]
     card_rows = []
     for port in ports:
         grade_rows = []
         for item_grade in GRADES:
             providers = {}
-            for provider in PROVIDER_ORDER:
+            for provider in active_providers:
                 values = grouped.get((port.code, item_grade, provider), [])
                 providers[provider] = (
                     _observation_payload(values[0], values[1] if len(values) > 1 else None)
@@ -106,7 +109,7 @@ def dashboard_payload(port_code=None, grade="VLSFO", range_name="7D"):
         )
 
     history = []
-    for provider in PROVIDER_ORDER:
+    for provider in active_providers:
         values = list(reversed(grouped.get((selected.code, grade, provider), [])))
         if cutoff:
             values = [obs for obs in values if obs.source_time >= cutoff]
@@ -120,9 +123,12 @@ def dashboard_payload(port_code=None, grade="VLSFO", range_name="7D"):
             }
         )
 
-    configured = any(state.configured for state in ProviderState.query.all())
+    has_real_data = Observation.query.filter_by(synthetic=False).first() is not None
+    has_demo_data = Observation.query.filter_by(synthetic=True).first() is not None
+    mode = "mixed" if has_real_data and has_demo_data else "live" if has_real_data else "demo"
     return {
-        "mode": "live" if configured else "demo",
+        "mode": mode,
+        "providers": [{"id": provider, "name": PROVIDER_NAMES[provider]} for provider in active_providers],
         "ports": card_rows,
         "selectedPort": {"code": selected.code, "name": selected.name},
         "selectedGrade": grade,
@@ -148,7 +154,7 @@ def compare_payload(port_codes=None, grades=None):
                 provider_values[provider] = payload
                 if payload:
                     prices.append(payload["price"])
-            spread = round(max(prices) - min(prices), 2) if len(prices) == 2 else None
+            spread = round(max(prices) - min(prices), 2) if len(prices) >= 2 else None
             spread_pct = round(spread / min(prices) * 100, 2) if spread is not None and min(prices) else None
             rows.append(
                 {
@@ -209,6 +215,7 @@ def sources_payload():
         for obs in observations
     ]
     last_run = RefreshRun.query.order_by(RefreshRun.started_at.desc()).first()
+    upload = db.session.get(UploadState, 1)
     return {
         "providers": provider_rows,
         "preview": preview,
@@ -221,4 +228,17 @@ def sources_payload():
         }
         if last_run
         else None,
+        "upload": {
+            "fileName": upload.file_name,
+            "worksheet": upload.sheet_name,
+            "uploadedAt": iso(upload.uploaded_at),
+            "status": upload.status,
+            "layout": upload.layout,
+            "observations": upload.rows_received,
+            "ports": upload.ports_received,
+            "skippedCells": upload.skipped_cells,
+            "formulaCacheMissing": upload.formula_cache_missing,
+            "excelErrors": upload.excel_errors,
+            "lastError": upload.last_error,
+        } if upload else None,
     }

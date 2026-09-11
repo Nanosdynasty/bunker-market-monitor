@@ -34,6 +34,7 @@ class Config:
     )
     STALE_AFTER_MINUTES = int(os.getenv("STALE_AFTER_MINUTES", "180"))
     PROVIDER_TIMEOUT_SECONDS = int(os.getenv("PROVIDER_TIMEOUT_SECONDS", "15"))
+    MAX_CONTENT_LENGTH = int(os.getenv("MAX_UPLOAD_BYTES", str(20 * 1024 * 1024)))
 
     BULUGO_API_KEY = os.getenv("BULUGO_API_KEY", "")
     BULUGO_API_URL = os.getenv(

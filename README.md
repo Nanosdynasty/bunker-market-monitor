@@ -1,6 +1,6 @@
 # Bunker Market Monitor
 
-A compact Flask proof of concept that compares source-timestamped bunker price observations from Bulugo and OilPriceAPI. It monitors up to 15 ports, preserves provider identity, accumulates history in SQLite, and keeps the last successful values visible when a refresh fails.
+A compact Flask proof of concept that compares source-timestamped bunker price observations from Bulugo, OilPriceAPI, and uploaded Excel workbooks. It monitors up to 15 ports, preserves source identity, accumulates history in SQLite, and keeps the last successful values visible when a refresh fails.
 
 The app starts in **clearly labelled demo mode** so the UI can be reviewed without credentials. Demo prices are generated fixtures and must not be treated as market data.
 
@@ -13,6 +13,20 @@ The app starts in **clearly labelled demo mode** so the UI can be reviewed witho
 - Light/dark themes, responsive layouts, and browser polling while the page is open.
 - Server refresh target of 30 minutes, with quota checks, cooldowns, and a database lease to prevent overlapping jobs.
 - `/health` liveness and `/ready` database readiness endpoints.
+
+## Upload your own Excel workbook
+
+Open **Sources**, choose **Upload an Excel price file**, and select an `.xlsx` workbook. The app reads saved cell values with `openpyxl`, imports normalized prices into SQLite as an **Excel upload** source, and displays them on Dashboard, Compare, the interactive chart, and the Sources preview.
+
+Supported workbook shapes include:
+
+- Long-form columns such as `Port`, `Fuel grade`, `Price`, and optional `Timestamp`, `Country`, and `Region`.
+- One row per port with separate `VLSFO`, `HSFO`/`IFO380`, and `MGO` columns.
+- Matrix sheets where ports are merged or repeated headings, fuel grades are subheadings, and dates run down the first column.
+
+Only `.xlsx` files up to 20 MB are accepted by default. Formula text is not executed: the app reads the result last saved by Excel. Missing cached results and Excel errors are reported in the upload diagnostics. The temporary raw workbook is deleted after parsing; normalized observations remain in SQLite.
+
+An upload is a snapshot. Render or any other hosted server cannot watch a folder on your computer. After changing the local workbook, upload it again. Continuous updates require a separate OneDrive, SharePoint, or Google Sheets API connector.
 
 ## Important data and licensing note
 
@@ -104,8 +118,10 @@ The test suite uses temporary SQLite databases and mocked HTTP responses. No pro
 - [ ] VLSFO/HSFO/MGO and 24H/7D/30D/All controls update the chart.
 - [ ] The chart has a vertical USD/MT price scale.
 - [ ] Hovering or tapping a point shows timestamp, provider, grade, and exact price.
-- [ ] Compare shows provider values separately and calculates spread only when both exist.
+- [ ] Compare shows source values separately and calculates spread when at least two exist.
 - [ ] Sources shows configuration, quota, errors, last success, and normalized rows.
+- [ ] Upload a supported `.xlsx` in Sources and confirm the Excel values appear in the cards, comparison table, chart, and normalized preview.
+- [ ] Change a price and upload the workbook again; confirm the Excel source is replaced while API history remains intact.
 - [ ] Light/dark choice survives a reload.
 - [ ] A simulated provider failure leaves previous values visible and marks the provider unavailable.
 - [ ] Restarting with a persistent database retains accumulated history.

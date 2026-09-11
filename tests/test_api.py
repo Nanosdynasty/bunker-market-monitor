@@ -54,3 +54,4 @@ def test_html_contains_required_tabs_and_accessible_chart(client):
     assert "Dashboard" in html and "Compare" in html and "Sources" in html
     assert 'id="price-chart"' in html
     assert "Hover, tap, or focus" in html
+    assert "Upload an Excel price file" in html
