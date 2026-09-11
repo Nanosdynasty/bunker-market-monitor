@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="csrf-token" content="{{ csrf_token }}">
+  <title>Bunker Market Monitor</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}">
+  <script defer src="{{ url_for('static', filename='vendor/chart.umd.min.js') }}"></script>
+  <script defer src="{{ url_for('static', filename='app.js') }}"></script>
+</head>
+<body>
+  <a class="skip-link" href="#main-content">Skip to content</a>
+  <header class="topbar">
+    <a class="brand" href="#dashboard" aria-label="Bunker Market Monitor home">
+      <span class="brand-primary">HOWE ROBINSON</span><span class="brand-secondary">PARTNERS</span>
+    </a>
+    <nav class="main-nav" aria-label="Primary navigation">
+      <button class="nav-link is-active" data-tab="dashboard">Dashboard</button>
+      <button class="nav-link" data-tab="compare">Compare</button>
+      <button class="nav-link" data-tab="sources">Sources</button>
+    </nav>
+    <div class="header-actions">
+      <span id="connection-status" class="status-chip status-demo"><span class="status-dot"></span>Demo data</span>
+      <label class="refresh-select"><span>Refresh</span>
+        <select id="browser-refresh" aria-label="Browser refresh interval">
+          <option value="0">Off</option>
+          <option value="300000" selected>5 min</option>
+          <option value="600000">10 min</option>
+        </select>
+      </label>
+      <button id="refresh-now" class="button button-secondary" type="button">
+        <span aria-hidden="true">↻</span><span>Refresh now</span>
+      </button>
+      <button id="theme-toggle" class="icon-button" type="button" aria-label="Switch to dark mode" title="Toggle light and dark mode">
+        <span class="sun" aria-hidden="true">☼</span><span class="theme-track"><span></span></span><span class="moon" aria-hidden="true">◐</span>
+      </button>
+    </div>
+  </header>
+
+  <main id="main-content" class="page-shell">
+    <div id="live-message" class="sr-only" aria-live="polite"></div>
+    <section id="dashboard-panel" class="tab-panel is-active" data-panel="dashboard">
+      <div class="page-heading">
+        <div><h1>Bunker prices</h1><p id="dashboard-subtitle">Loading monitored ports…</p></div>
+        <span id="demo-badge" class="status-chip status-demo">Demo data</span>
+      </div>
+      <div id="port-grid" class="port-grid" aria-live="polite"></div>
+
+      <section class="card chart-card" aria-labelledby="chart-title">
+        <div class="chart-header">
+          <div><h2 id="chart-title">Price history</h2><p>USD per metric tonne</p></div>
+          <div class="chart-controls">
+            <div class="segmented" aria-label="Fuel grade">
+              <button class="segment is-active" data-grade="VLSFO">VLSFO</button>
+              <button class="segment" data-grade="HSFO">HSFO</button>
+              <button class="segment" data-grade="MGO">MGO</button>
+            </div>
+            <div class="provider-toggles" aria-label="Providers">
+              <label><input type="checkbox" data-provider="bulugo" checked><span class="series-key bulugo"></span>Bulugo</label>
+              <label><input type="checkbox" data-provider="oilpriceapi" checked><span class="series-key oilpriceapi"></span>OilPriceAPI</label>
+            </div>
+            <div class="segmented" aria-label="Time range">
+              <button class="segment" data-range="24H">24H</button>
+              <button class="segment is-active" data-range="7D">7D</button>
+              <button class="segment" data-range="30D">30D</button>
+              <button class="segment" data-range="ALL">All</button>
+            </div>
+          </div>
+        </div>
+        <div class="chart-wrap"><canvas id="price-chart" role="img" aria-label="Selected port bunker price history"></canvas></div>
+        <p class="chart-note">Hover, tap, or focus a point to inspect its provider, time, and exact price.</p>
+      </section>
+    </section>
+
+    <section id="compare-panel" class="tab-panel" data-panel="compare" hidden>
+      <div class="page-heading"><div><h1>Compare sources</h1><p>Like-for-like provider observations. Values are never averaged.</p></div></div>
+      <section class="card filter-bar" aria-label="Comparison filters">
+        <label>Fuel grade
+          <select id="compare-grade"><option value="">All grades</option><option>VLSFO</option><option>HSFO</option><option>MGO</option></select>
+        </label>
+        <label>Find port<input id="compare-search" type="search" placeholder="Search monitored ports"></label>
+        <span id="compare-count" class="muted"></span>
+      </section>
+      <section class="card table-card">
+        <div class="table-title"><div><h2>Provider comparison</h2><p>Spread is the absolute difference between available providers.</p></div></div>
+        <div class="table-scroll">
+          <table id="compare-table"><caption class="sr-only">Bunker price comparison by port, fuel grade, and provider</caption>
+            <thead><tr><th data-sort="port">Port</th><th data-sort="grade">Grade</th><th class="numeric" data-sort="bulugo">Bulugo</th><th class="numeric" data-sort="oilpriceapi">OilPriceAPI</th><th class="numeric" data-sort="spread">Spread</th><th data-sort="freshness">Freshness</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </section>
+    </section>
+
+    <section id="sources-panel" class="tab-panel" data-panel="sources" hidden>
+      <div class="page-heading"><div><h1>Sources</h1><p>Connection health, request budgets, provenance, and normalized observations.</p></div></div>
+      <div id="source-cards" class="source-grid"></div>
+      <section class="card processing-card">
+        <div class="table-title"><div><h2>Processing details</h2><p id="last-run-copy">No provider refresh has run yet.</p></div><span id="last-run-status" class="status-chip">Waiting</span></div>
+      </section>
+      <section class="card table-card source-table-card">
+        <div class="table-title"><div><h2>Normalized observation preview</h2><p>Latest 200 stored observations; source timestamps are preserved.</p></div></div>
+        <div class="table-scroll">
+          <table id="source-table"><caption class="sr-only">Normalized provider observations</caption>
+            <thead><tr><th>Provider</th><th>Port</th><th>Grade</th><th class="numeric">Price</th><th>Source time</th><th>Retrieved</th><th>Status</th><th>Source label</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </section>
+    </section>
+  </main>
+
+  <footer class="site-footer"><span>Indicative prices only — not firm supplier quotes.</span><span>Upstream fetch target: every 30 minutes, subject to provider quotas.</span></footer>
+</body>
+</html>
