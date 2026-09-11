@@ -28,7 +28,12 @@ BASE_PRICES = {"VLSFO": 625.0, "HSFO": 515.0, "MGO": 805.0}
 
 
 def seed_demo_data() -> None:
+    repaired = Observation.query.filter_by(
+        provenance_url="demo://generated", synthetic=False
+    ).update({"synthetic": True}, synchronize_session=False)
     if Observation.query.first():
+        if repaired:
+            db.session.commit()
         return
     random.seed(20260911)
     now = utcnow().replace(minute=0, second=0, microsecond=0)
@@ -74,6 +79,7 @@ def seed_demo_data() -> None:
                             retrieved_at=timestamp,
                             provenance_url="demo://generated",
                             source_label=f"{provider.name} demo fixture",
+                            synthetic=True,
                         )
                     )
     db.session.commit()

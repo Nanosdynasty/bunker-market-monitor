@@ -1,6 +1,7 @@
 from datetime import timedelta
 
 from bunker_market.models import Observation, Port, ProviderState, db, utcnow
+from bunker_market.demo import seed_demo_data
 
 
 def seed_small(app):
@@ -55,3 +56,10 @@ def test_html_contains_required_tabs_and_accessible_chart(client):
     assert 'id="price-chart"' in html
     assert "Hover, tap, or focus" in html
     assert "Upload an Excel price file" in html
+
+
+def test_demo_rows_remain_truthfully_labelled(app, client):
+    with app.app_context():
+        seed_demo_data()
+        assert Observation.query.filter_by(synthetic=True).count() > 0
+    assert client.get("/api/dashboard").json["mode"] == "demo"
