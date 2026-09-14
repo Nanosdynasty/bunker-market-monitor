@@ -8,6 +8,7 @@ from .config import Config
 from .demo import seed_demo_data
 from .models import db
 from .refresh import ensure_provider_states, perform_refresh
+from .graph_connector import refresh_all_cloud
 from .routes import bp
 
 
@@ -46,6 +47,17 @@ def create_app(test_config=None):
                 replace_existing=True,
                 max_instances=1,
                 coalesce=True,
+                )
+        graph_job_id = "cloud-workbook-refresh"
+        if not scheduler.get_job(graph_job_id):
+            scheduler.add_job(
+                lambda: _scheduled_cloud_refresh(app),
+                "interval",
+                minutes=app.config["GRAPH_REFRESH_INTERVAL_MINUTES"],
+                id=graph_job_id,
+                replace_existing=True,
+                max_instances=1,
+                coalesce=True,
             )
         if not scheduler.running:
             scheduler.start()
@@ -56,6 +68,11 @@ def create_app(test_config=None):
 def _scheduled_refresh(app):
     with app.app_context():
         perform_refresh(trigger="scheduled", force=False)
+
+
+def _scheduled_cloud_refresh(app):
+    with app.app_context():
+        refresh_all_cloud()
 
 
 @atexit.register

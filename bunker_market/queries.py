@@ -1,9 +1,9 @@
 from collections import defaultdict
 from datetime import timedelta
 
-from flask import current_app
+from flask import current_app, session
 
-from .models import Observation, Port, ProviderState, RefreshRun, UploadState, db, utcnow
+from .models import CloudWorkbookState, Observation, Port, ProviderState, RefreshRun, UploadState, db, utcnow
 
 
 PROVIDER_ORDER = ["bulugo", "oilpriceapi", "excel"]
@@ -216,6 +216,7 @@ def sources_payload():
     ]
     last_run = RefreshRun.query.order_by(RefreshRun.started_at.desc()).first()
     upload = db.session.get(UploadState, 1)
+    cloud = db.session.get(CloudWorkbookState, session.get("cloud_session_id")) if session.get("cloud_session_id") else None
     return {
         "providers": provider_rows,
         "preview": preview,
@@ -241,4 +242,17 @@ def sources_payload():
             "excelErrors": upload.excel_errors,
             "lastError": upload.last_error,
         } if upload else None,
+        "cloud": {
+            "connected": bool(cloud and cloud.item_id),
+            "status": cloud.status if cloud else "waiting",
+            "fileName": cloud.file_name if cloud else None,
+            "filePath": cloud.file_path if cloud else None,
+            "worksheet": cloud.worksheet if cloud else None,
+            "worksheets": __import__("json").loads(cloud.worksheets_json) if cloud and cloud.worksheets_json else [],
+            "lastModified": iso(cloud.last_modified) if cloud else None,
+            "lastChecked": iso(cloud.last_checked) if cloud else None,
+            "lastSuccess": iso(cloud.last_success) if cloud else None,
+            "changed": bool(cloud.changed) if cloud else False,
+            "error": cloud.last_error if cloud else None,
+        } if cloud else {"connected": False, "status": "waiting", "fileName": None, "filePath": None, "worksheet": None, "worksheets": [], "lastModified": None, "lastChecked": None, "lastSuccess": None, "changed": False, "error": None},
     }

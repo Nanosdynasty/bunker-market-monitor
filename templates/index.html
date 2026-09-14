@@ -96,6 +96,13 @@
 
     <section id="sources-panel" class="tab-panel" data-panel="sources" hidden>
       <div class="page-heading"><div><h1>Sources</h1><p>Connection health, request budgets, provenance, and normalized observations.</p></div></div>
+      <section class="card upload-card" aria-labelledby="cloud-title">
+        <div class="upload-copy"><span class="upload-icon" aria-hidden="true">☁</span><div><h2 id="cloud-title">Connect OneDrive or SharePoint</h2><p>Sign in, browse your files, or paste a sharing link. Azure checks the saved cloud workbook every five minutes.</p></div></div>
+        <div class="upload-form"><a class="button button-primary" href="/auth/login">Connect Microsoft account</a><button id="cloud-browse" class="button button-secondary" type="button">Browse OneDrive</button><button id="cloud-refresh" class="button button-secondary" type="button">Check cloud file</button><button id="cloud-disconnect" class="button button-secondary" type="button">Disconnect</button></div>
+        <form id="cloud-link-form" class="upload-form"><label class="file-picker"><span>OneDrive / SharePoint link</span><input id="cloud-link" type="url" placeholder="https://..." required></label><button class="button button-secondary" type="submit">Use link</button></form>
+        <div id="cloud-status" class="upload-diagnostics" aria-live="polite"><p>Not connected. Connect Microsoft account to select a workbook.</p></div>
+        <div id="cloud-files" class="upload-diagnostics" hidden aria-live="polite"></div>
+      </section>
       <section class="card upload-card" aria-labelledby="excel-upload-title">
         <div class="upload-copy">
           <span class="upload-icon" aria-hidden="true">X</span>

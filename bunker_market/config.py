@@ -51,3 +51,10 @@ class Config:
     SESSION_COOKIE_HTTPONLY = True
     SESSION_COOKIE_SAMESITE = "Lax"
     SESSION_COOKIE_SECURE = _bool("SESSION_COOKIE_SECURE", False)
+
+    MSAL_CLIENT_ID = os.getenv("MSAL_CLIENT_ID", "")
+    MSAL_CLIENT_SECRET = os.getenv("MSAL_CLIENT_SECRET", "")
+    MSAL_TENANT = os.getenv("MSAL_TENANT", "common")
+    MSAL_REDIRECT_URI = os.getenv("MSAL_REDIRECT_URI", "http://localhost:5070/auth/callback")
+    GRAPH_SCOPES = ["User.Read", "Files.Read", "offline_access"]
+    GRAPH_REFRESH_INTERVAL_MINUTES = int(os.getenv("GRAPH_REFRESH_INTERVAL_MINUTES", "5"))

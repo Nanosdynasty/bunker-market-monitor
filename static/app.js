@@ -259,12 +259,33 @@
           </div>${provider.lastError ? `<p class="source-error">${esc(provider.lastError)}</p>` : ""}
         </article>`).join("");
       renderUploadDiagnostics(payload.upload);
+      renderCloudStatus(payload.cloud);
       const run = payload.lastRun;
       $("#last-run-copy").textContent = run ? `${formatDate(run.startedAt)} · ${run.inserted} new observations${run.error ? ` · ${run.error}` : ""}` : "No provider refresh has run yet.";
       $("#last-run-status").className = `status-chip ${statusClass(run?.status)}`;
       $("#last-run-status").textContent = statusText(run?.status);
       $("#source-table tbody").innerHTML = payload.preview.map((row) => `<tr><td>${esc(row.provider)}</td><td><strong>${esc(row.port)}</strong><span class="cell-sub">${esc(row.portCode)}</span></td><td>${esc(row.grade)}</td><td class="numeric">$${row.price.toFixed(2)} ${esc(row.currency)}/${esc(row.unit)}</td><td>${formatDate(row.sourceTime)}</td><td>${formatDate(row.retrievedAt)}</td><td><span class="status-chip ${statusClass(row.freshness)}">${statusText(row.freshness)}</span></td><td>${esc(row.sourceLabel)}</td></tr>`).join("");
     } catch (error) { announce(`Source diagnostics failed: ${error.message}`); }
+  }
+
+  function renderCloudStatus(cloud) {
+    const target = $("#cloud-status");
+    if (!cloud || !cloud.connected) { target.innerHTML = "<p>Not connected. Connect Microsoft account to select a workbook.</p>"; return; }
+    target.innerHTML = `<dl><div><dt>File</dt><dd>${esc(cloud.fileName || "—")}</dd></div><div><dt>Path</dt><dd>${esc(cloud.filePath || "—")}</dd></div><div><dt>Worksheet</dt><dd>${esc(cloud.worksheet || "—")}</dd></div><div><dt>Cloud modified</dt><dd>${formatDate(cloud.lastModified)}</dd></div><div><dt>Last check</dt><dd>${formatDate(cloud.lastChecked)}</dd></div><div><dt>Status</dt><dd><span class="status-chip ${statusClass(cloud.status)}">${statusText(cloud.status)}</span></dd></div></dl>${cloud.changed ? "<p>Changed workbook detected and imported.</p>" : ""}${cloud.error ? `<p class="source-error">${esc(cloud.error)}</p>` : ""}`;
+  }
+
+  async function cloudAction(path, body) {
+    try { const result = await api(path, { method: "POST", headers: { "Content-Type": "application/json", "X-CSRF-Token": csrf }, body: body ? JSON.stringify(body) : undefined }); renderCloudStatus(result); await Promise.all([loadDashboard(), loadCompare(), loadSources()]); }
+    catch (error) { announce(`Cloud workbook action failed: ${error.message}`); }
+  }
+
+  async function browseCloud() {
+    try {
+      const result = await api("/api/graph/files");
+      const target = $("#cloud-files"); target.hidden = false;
+      target.innerHTML = result.files.length ? result.files.map((file) => `<button type="button" class="button button-secondary cloud-file" data-id="${esc(file.id)}" data-drive="${esc(file.parentReference?.driveId || "")}" data-name="${esc(file.name)}" data-folder="${file.folder ? "true" : "false"}">${esc(file.folder ? "📁 " : "📄 ")}${esc(file.name)}</button>`).join(" ") : "<p>No folders or .xlsx files found.</p>";
+      $$(".cloud-file", target).forEach((button) => button.addEventListener("click", () => button.dataset.folder === "true" ? browseCloud(button.dataset.id) : cloudAction("/api/graph/select", { itemId: button.dataset.id, driveId: button.dataset.drive, name: button.dataset.name })));
+    } catch (error) { announce(`OneDrive browse failed: ${error.message}`); }
   }
 
   function renderUploadDiagnostics(upload) {
@@ -354,6 +375,10 @@
     $("#compare-grade").addEventListener("change", renderComparison);
     $("#compare-search").addEventListener("input", renderComparison);
     $("#excel-upload-form").addEventListener("submit", uploadExcel);
+    $("#cloud-refresh").addEventListener("click", () => cloudAction("/api/graph/refresh"));
+    $("#cloud-browse").addEventListener("click", browseCloud);
+    $("#cloud-disconnect").addEventListener("click", () => cloudAction("/api/graph/disconnect"));
+    $("#cloud-link-form").addEventListener("submit", (event) => { event.preventDefault(); cloudAction("/api/graph/link", { link: $("#cloud-link").value }); });
     $$("#compare-table th[data-sort]").forEach((header) => header.addEventListener("click", () => {
       const key = header.dataset.sort;
       state.sort.direction = state.sort.key === key ? -state.sort.direction : 1;

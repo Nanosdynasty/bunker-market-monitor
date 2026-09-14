@@ -21,6 +21,16 @@ services:
         value: "30"
       - key: SESSION_COOKIE_SECURE
         value: "true"
+      - key: MSAL_CLIENT_ID
+        sync: false
+      - key: MSAL_CLIENT_SECRET
+        sync: false
+      - key: MSAL_TENANT
+        value: common
+      - key: MSAL_REDIRECT_URI
+        sync: false
+      - key: GRAPH_REFRESH_INTERVAL_MINUTES
+        value: "5"
       - key: DATABASE_PATH
         value: /var/data/bunker-market-monitor.db
       - key: BULUGO_API_KEY

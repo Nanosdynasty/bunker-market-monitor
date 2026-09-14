@@ -2,7 +2,7 @@ import secrets
 import tempfile
 from pathlib import Path
 
-from flask import Blueprint, current_app, jsonify, render_template, request, session
+from flask import Blueprint, current_app, jsonify, redirect, render_template, request, session
 from werkzeug.exceptions import RequestEntityTooLarge
 from werkzeug.utils import secure_filename
 
@@ -10,6 +10,7 @@ from .excel_import import import_excel_result, mark_upload_error, parse_workbook
 from .models import Observation, ProviderState, db
 from .queries import compare_payload, dashboard_payload, sources_payload
 from .refresh import perform_refresh
+from .graph_connector import auth_url, disconnect, list_files, redeem_code, refresh_workbook, resolve_link, select_item, select_link, session_key, status
 
 
 bp = Blueprint("main", __name__)
@@ -19,6 +20,86 @@ def _csrf_token():
     if "csrf_token" not in session:
         session["csrf_token"] = secrets.token_urlsafe(24)
     return session["csrf_token"]
+
+
+@bp.get("/auth/login")
+def auth_login():
+    state = secrets.token_urlsafe(24)
+    session["oauth_state"] = state
+    try:
+        return redirect(auth_url(state))
+    except RuntimeError as exc:
+        return jsonify({"status": "error", "error": str(exc)}), 503
+
+
+@bp.get("/auth/callback")
+def auth_callback():
+    expected = session.pop("oauth_state", "")
+    if not expected or not request.args.get("state") or not secrets.compare_digest(expected, request.args["state"]):
+        return "Invalid sign-in state. Start the connection again.", 400
+    if request.args.get("error"):
+        return f"Microsoft sign-in failed: {request.args.get('error_description', request.args['error'])}", 400
+    try:
+        redeem_code(request.args.get("code", ""), session_key(session))
+        return redirect("/#sources")
+    except Exception as exc:
+        current_app.logger.warning("Microsoft sign-in failed: %s", exc)
+        return f"Microsoft sign-in failed: {exc}", 400
+
+
+@bp.get("/api/graph/status")
+def graph_status_api():
+    return jsonify(status(session_key(session)))
+
+
+@bp.get("/api/graph/files")
+def graph_files_api():
+    try:
+        return jsonify({"files": list_files(session_key(session), request.args.get("parentId"))})
+    except Exception as exc:
+        return jsonify({"status": "error", "error": str(exc)}), 401 if isinstance(exc, PermissionError) else 502
+
+
+@bp.post("/api/graph/select")
+def graph_select_api():
+    if request.headers.get("X-CSRF-Token", "") != session.get("csrf_token", ""):
+        return jsonify({"status": "error", "error": "Invalid selection token"}), 403
+    data = request.get_json(silent=True) or {}
+    if not data.get("itemId") or not data.get("driveId"):
+        return jsonify({"status": "error", "error": "A drive ID and item ID are required"}), 400
+    try:
+        item = {"id": data["itemId"], "parentReference": {"driveId": data["driveId"]}, "name": data.get("name")}
+        return jsonify(select_item(session_key(session), item))
+    except Exception as exc:
+        return jsonify({"status": "error", "error": str(exc)}), 502
+
+
+@bp.post("/api/graph/link")
+def graph_link_api():
+    if request.headers.get("X-CSRF-Token", "") != session.get("csrf_token", ""):
+        return jsonify({"status": "error", "error": "Invalid selection token"}), 403
+    link = (request.get_json(silent=True) or {}).get("link", "").strip()
+    if not link:
+        return jsonify({"status": "error", "error": "Paste a OneDrive or SharePoint link"}), 400
+    try:
+        return jsonify(select_link(session_key(session), link))
+    except Exception as exc:
+        return jsonify({"status": "error", "error": str(exc)}), 502
+
+
+@bp.post("/api/graph/refresh")
+def graph_refresh_api():
+    if request.headers.get("X-CSRF-Token", "") != session.get("csrf_token", ""):
+        return jsonify({"status": "error", "error": "Invalid refresh token"}), 403
+    return jsonify(refresh_workbook(session_key(session), force=True))
+
+
+@bp.post("/api/graph/disconnect")
+def graph_disconnect_api():
+    if request.headers.get("X-CSRF-Token", "") != session.get("csrf_token", ""):
+        return jsonify({"status": "error", "error": "Invalid disconnect token"}), 403
+    disconnect(session_key(session))
+    return jsonify({"status": "disconnected"})
 
 
 @bp.get("/")

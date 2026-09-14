@@ -105,3 +105,22 @@ class UploadState(db.Model):
     formula_cache_missing = db.Column(db.Integer, nullable=False, default=0)
     excel_errors = db.Column(db.Integer, nullable=False, default=0)
     last_error = db.Column(db.String(1000))
+
+
+class CloudWorkbookState(db.Model):
+    __tablename__ = "cloud_workbook_states"
+
+    session_id = db.Column(db.String(96), primary_key=True)
+    drive_id = db.Column(db.String(255))
+    item_id = db.Column(db.String(255))
+    file_name = db.Column(db.String(255))
+    file_path = db.Column(db.String(1000))
+    worksheet = db.Column(db.String(255))
+    worksheets_json = db.Column(db.Text)
+    etag = db.Column(db.String(500))
+    last_modified = db.Column(db.DateTime)
+    last_checked = db.Column(db.DateTime)
+    last_success = db.Column(db.DateTime)
+    status = db.Column(db.String(32), nullable=False, default="waiting")
+    changed = db.Column(db.Boolean, nullable=False, default=False)
+    last_error = db.Column(db.String(1000))

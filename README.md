@@ -28,6 +28,19 @@ Only `.xlsx` files up to 20 MB are accepted by default. Formula text is not exec
 
 An upload is a snapshot. Render or any other hosted server cannot watch a folder on your computer. After changing the local workbook, upload it again. Continuous updates require a separate OneDrive, SharePoint, or Google Sheets API connector.
 
+## Connect a cloud workbook (Azure or Render)
+
+Use **Sources → Connect Microsoft account** to sign in, then browse OneDrive or paste a OneDrive/SharePoint sharing link. The server stores the selected drive/item reference in the session and checks Graph metadata every five minutes. It downloads and imports the workbook only when its ETag or saved modification time changes. The browser never calls Graph directly.
+
+Before using this mode, register an app in Microsoft Entra ID with supported account types that include personal Microsoft accounts and organizational accounts. Add delegated Microsoft Graph permissions `User.Read`, `Files.Read`, and `offline_access`, create a client secret **value**, and register these redirect URIs:
+
+- Local: `http://localhost:5070/auth/callback`
+- Azure App Service: `https://<app-name>.azurewebsites.net/auth/callback`
+
+Set `MSAL_CLIENT_ID`, `MSAL_CLIENT_SECRET`, `MSAL_TENANT=common`, and the matching `MSAL_REDIRECT_URI` as service environment variables. On Azure, set `DATABASE_PATH=/home/data/bunker-market-monitor.db` and enable **Always On**. On Render, use the persistent disk path from `render.yaml`. A restart clears in-memory token caches, so users may need to sign in again.
+
+The workbook must be saved and fully synced to OneDrive/SharePoint before a change is visible. Excel formulas are not executed by this app; it reads the values cached by Excel at the last save. A local `C:\...` path cannot be watched by Azure.
+
 ## Important data and licensing note
 
 This repository does not scrape public price pages. Both providers require an account/API key and may restrict which datasets, ports, and display use are permitted. Before enabling live mode, confirm that your account terms permit internal display and temporary storage of observations.
