@@ -271,7 +271,9 @@
   function renderCloudStatus(cloud) {
     const target = $("#cloud-status");
     if (!cloud || !cloud.connected) { target.innerHTML = "<p>Not connected. Connect Microsoft account to select a workbook.</p>"; return; }
-    target.innerHTML = `<dl><div><dt>File</dt><dd>${esc(cloud.fileName || "—")}</dd></div><div><dt>Path</dt><dd>${esc(cloud.filePath || "—")}</dd></div><div><dt>Worksheet</dt><dd>${esc(cloud.worksheet || "—")}</dd></div><div><dt>Cloud modified</dt><dd>${formatDate(cloud.lastModified)}</dd></div><div><dt>Last check</dt><dd>${formatDate(cloud.lastChecked)}</dd></div><div><dt>Status</dt><dd><span class="status-chip ${statusClass(cloud.status)}">${statusText(cloud.status)}</span></dd></div></dl>${cloud.changed ? "<p>Changed workbook detected and imported.</p>" : ""}${cloud.error ? `<p class="source-error">${esc(cloud.error)}</p>` : ""}`;
+    const worksheet = cloud.worksheets?.length ? `<select id="cloud-worksheet" aria-label="Cloud workbook worksheet">${cloud.worksheets.map((name) => `<option ${name === cloud.worksheet ? "selected" : ""}>${esc(name)}</option>`).join("")}</select>` : esc(cloud.worksheet || "—");
+    target.innerHTML = `<dl><div><dt>File</dt><dd>${esc(cloud.fileName || "—")}</dd></div><div><dt>Path</dt><dd>${esc(cloud.filePath || "—")}</dd></div><div><dt>Worksheet</dt><dd>${worksheet}</dd></div><div><dt>Cloud modified</dt><dd>${formatDate(cloud.lastModified)}</dd></div><div><dt>Last check</dt><dd>${formatDate(cloud.lastChecked)}</dd></div><div><dt>Status</dt><dd><span class="status-chip ${statusClass(cloud.status)}">${statusText(cloud.status)}</span></dd></div></dl>${cloud.changed ? "<p>Changed workbook detected and imported.</p>" : ""}${cloud.error ? `<p class="source-error">${esc(cloud.error)}</p>` : ""}`;
+    $("#cloud-worksheet")?.addEventListener("change", (event) => cloudAction("/api/graph/worksheet", { worksheet: event.target.value }));
   }
 
   async function cloudAction(path, body) {

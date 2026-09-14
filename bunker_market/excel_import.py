@@ -211,14 +211,15 @@ def _item(port, country, region, grade, price, timestamp, sheet_name):
     )
 
 
-def parse_workbook(path: str | Path, file_name: str) -> ParseResult:
+def parse_workbook(path: str | Path, file_name: str, preferred_sheet: str | None = None) -> ParseResult:
     fallback = utcnow()
     values_book = load_workbook(path, data_only=True, read_only=False)
     formulas_book = load_workbook(path, data_only=False, read_only=False)
     candidates = []
     total_missing = 0
     total_errors = 0
-    for name in values_book.sheetnames:
+    sheet_names_to_scan = [preferred_sheet] if preferred_sheet in values_book.sheetnames else list(values_book.sheetnames)
+    for name in sheet_names_to_scan:
         sheet = values_book[name]
         formula_sheet = formulas_book[name]
         missing, errors = _formula_diagnostics(sheet, formula_sheet)

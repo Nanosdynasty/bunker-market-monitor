@@ -10,7 +10,7 @@ from .excel_import import import_excel_result, mark_upload_error, parse_workbook
 from .models import Observation, ProviderState, db
 from .queries import compare_payload, dashboard_payload, sources_payload
 from .refresh import perform_refresh
-from .graph_connector import auth_url, disconnect, list_files, redeem_code, refresh_workbook, resolve_link, select_item, select_link, session_key, status
+from .graph_connector import auth_url, disconnect, list_files, redeem_code, refresh_workbook, resolve_link, select_item, select_link, session_key, set_worksheet, status
 
 
 bp = Blueprint("main", __name__)
@@ -92,6 +92,17 @@ def graph_refresh_api():
     if request.headers.get("X-CSRF-Token", "") != session.get("csrf_token", ""):
         return jsonify({"status": "error", "error": "Invalid refresh token"}), 403
     return jsonify(refresh_workbook(session_key(session), force=True))
+
+
+@bp.post("/api/graph/worksheet")
+def graph_worksheet_api():
+    if request.headers.get("X-CSRF-Token", "") != session.get("csrf_token", ""):
+        return jsonify({"status": "error", "error": "Invalid worksheet token"}), 403
+    worksheet = (request.get_json(silent=True) or {}).get("worksheet", "")
+    try:
+        return jsonify(set_worksheet(session_key(session), worksheet))
+    except Exception as exc:
+        return jsonify({"status": "error", "error": str(exc)}), 422
 
 
 @bp.post("/api/graph/disconnect")

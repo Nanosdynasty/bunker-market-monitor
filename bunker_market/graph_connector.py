@@ -170,7 +170,7 @@ def _refresh_workbook_locked(key, force=False):
             tmp.write(response.content)
             temp_path = Path(tmp.name)
         try:
-            result = parse_workbook(temp_path, state.file_name or "workbook.xlsx")
+            result = parse_workbook(temp_path, state.file_name or "workbook.xlsx", state.worksheet)
             import_excel_result(result)
         finally:
             temp_path.unlink(missing_ok=True)
@@ -217,6 +217,15 @@ def state_payload(state):
 
 def status(key):
     return state_payload(db.session.get(CloudWorkbookState, key))
+
+
+def set_worksheet(key, worksheet):
+    state = _state(key)
+    if not worksheet or worksheet not in (json.loads(state.worksheets_json) if state.worksheets_json else []):
+        raise ValueError("That worksheet is not available in the selected workbook")
+    state.worksheet = worksheet
+    db.session.commit()
+    return refresh_workbook(key, force=True)
 
 
 def refresh_all_cloud():
