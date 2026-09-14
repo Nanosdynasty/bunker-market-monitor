@@ -21,8 +21,6 @@
   }[char]));
   const csrf = $("meta[name='csrf-token']").content;
   const providerMeta = {
-    bulugo: { name: "Bulugo", color: "--brand", dash: [] },
-    oilpriceapi: { name: "OilPriceAPI", color: "--positive", dash: [7, 5] },
     excel: { name: "Excel", color: "--warning", dash: [2, 4] },
   };
 
@@ -70,7 +68,7 @@
 
   function statusText(status) {
     return ({
-      current: "Current", demo: "Demo data", mixed: "Excel + demo", stale: "Stale", partial: "Partial",
+      current: "Current", demo: "Demo data", mixed: "Excel + demo", empty: "No workbook", stale: "Stale", partial: "Partial",
       rate_limited: "Rate limited", unavailable: "Unavailable", not_configured: "Not configured",
       complete: "Completed", failed: "Failed", running: "Running", cooldown: "Cooldown",
     })[status] || "Waiting";
@@ -101,7 +99,7 @@
   function renderCards(payload) {
     const grid = $("#port-grid");
     if (!payload.ports.length) {
-      grid.innerHTML = `<div class="empty-state"><strong>No price observations yet.</strong><br>Configure at least one provider key, or enable demo mode.</div>`;
+      grid.innerHTML = `<div class="empty-state"><strong>No workbook connected yet.</strong><br>Open Sources and connect a OneDrive or SharePoint Excel workbook.</div>`;
       return;
     }
     const providers = payload.providers || [];
@@ -204,11 +202,11 @@
       if (payload.selectedPort) renderChart(payload);
       $("#dashboard-subtitle").textContent = `${payload.ports.length} monitored hubs · Updated ${formatDate(payload.generatedAt)}`;
       const badge = $("#demo-badge");
-      badge.hidden = payload.mode === "live";
-      badge.textContent = payload.mode === "mixed" ? "Includes demo data" : "Demo data";
+      badge.hidden = payload.mode === "live" || payload.mode === "empty";
+      badge.textContent = payload.mode === "mixed" ? "Includes demo data" : "Excel workbook";
       const status = $("#connection-status");
-      status.className = `status-chip ${payload.mode === "live" ? "status-current" : "status-demo"}`;
-      status.innerHTML = `<span class="status-dot"></span>${payload.mode === "mixed" ? "Excel + demo" : payload.mode === "demo" ? "Demo data" : "Live sources"}`;
+      status.className = `status-chip ${payload.mode === "live" || payload.mode === "empty" ? "status-current" : "status-demo"}`;
+      status.innerHTML = `<span class="status-dot"></span>${payload.mode === "empty" ? "Excel not connected" : payload.mode === "mixed" ? "Excel + demo" : payload.mode === "demo" ? "Demo data" : "Excel workbook"}`;
       if (!quiet) announce("Dashboard updated");
     } catch (error) {
       announce(`Dashboard refresh failed. Previous values remain visible. ${error.message}`);
@@ -231,17 +229,17 @@
     const rows = state.comparison.filter((row) => (!grade || row.grade === grade) && (!search || `${row.port} ${row.country}`.toLowerCase().includes(search)));
     const { key, direction } = state.sort;
     rows.sort((a, b) => {
-      const get = (row) => ["bulugo", "oilpriceapi", "excel"].includes(key) ? row.providers[key]?.price ?? -Infinity : key === "freshness" ? Object.values(row.providers).map((value) => value?.sourceTime || "").sort().pop() : row[key] ?? "";
+      const get = (row) => key === "excel" ? row.providers.excel?.price ?? -Infinity : key === "freshness" ? Object.values(row.providers).map((value) => value?.sourceTime || "").sort().pop() : row[key] ?? "";
       return String(get(a)).localeCompare(String(get(b)), undefined, { numeric: true }) * direction;
     });
     $("#compare-count").textContent = `${rows.length} comparisons`;
     $("#compare-table tbody").innerHTML = rows.map((row) => {
-      const b = row.providers.bulugo, o = row.providers.oilpriceapi, x = row.providers.excel;
+      const x = row.providers.excel;
       const values = [b, o, x].filter(Boolean);
       const newest = values.map((value) => value.sourceTime).filter(Boolean).sort().pop();
-      const fresh = values.some((value) => value.freshness === "stale") ? "stale" : values.length >= 2 ? "current" : "partial";
+      const fresh = values.some((value) => value.freshness === "stale") ? "stale" : values.length ? "current" : "no_data";
       const valueCell = (value) => value ? `$${value.price.toFixed(2)}<span class="cell-sub">${ageLabel(value.sourceTime)}</span>` : "—";
-      return `<tr><td><strong>${esc(row.port)}</strong><span class="cell-sub">${esc(row.country)}</span></td><td>${esc(row.grade)}</td><td class="numeric">${valueCell(b)}</td><td class="numeric">${valueCell(o)}</td><td class="numeric">${valueCell(x)}</td><td class="numeric">${row.spread == null ? "—" : `$${row.spread.toFixed(2)}<span class="cell-sub">${row.spreadPct.toFixed(2)}%</span>`}</td><td><span class="status-chip ${statusClass(fresh)}">${statusText(fresh)}</span><span class="cell-sub">${ageLabel(newest)}</span></td></tr>`;
+      return `<tr><td><strong>${esc(row.port)}</strong><span class="cell-sub">${esc(row.country)}</span></td><td>${esc(row.grade)}</td><td class="numeric">${valueCell(x)}</td><td><span class="status-chip ${statusClass(fresh)}">${statusText(fresh)}</span><span class="cell-sub">${ageLabel(newest)}</span></td></tr>`;
     }).join("");
   }
 

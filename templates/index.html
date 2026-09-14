@@ -21,7 +21,7 @@
       <button class="nav-link" data-tab="sources">Sources</button>
     </nav>
     <div class="header-actions">
-      <span id="connection-status" class="status-chip status-demo"><span class="status-dot"></span>Demo data</span>
+      <span id="connection-status" class="status-chip"><span class="status-dot"></span>Excel not connected</span>
       <label class="refresh-select"><span>Refresh</span>
         <select id="browser-refresh" aria-label="Browser refresh interval">
           <option value="0">Off</option>
@@ -43,7 +43,7 @@
     <section id="dashboard-panel" class="tab-panel is-active" data-panel="dashboard">
       <div class="page-heading">
         <div><h1>Bunker prices</h1><p id="dashboard-subtitle">Loading monitored ports…</p></div>
-        <span id="demo-badge" class="status-chip status-demo">Demo data</span>
+        <span id="demo-badge" class="status-chip" hidden>Excel workbook</span>
       </div>
       <div id="port-grid" class="port-grid" aria-live="polite"></div>
 
@@ -57,8 +57,6 @@
               <button class="segment" data-grade="MGO">MGO</button>
             </div>
             <div class="provider-toggles" aria-label="Providers">
-              <label><input type="checkbox" data-provider="bulugo" checked><span class="series-key bulugo"></span>Bulugo</label>
-              <label><input type="checkbox" data-provider="oilpriceapi" checked><span class="series-key oilpriceapi"></span>OilPriceAPI</label>
               <label data-provider-control="excel" hidden><input type="checkbox" data-provider="excel" checked><span class="series-key excel"></span>Excel</label>
             </div>
             <div class="segmented" aria-label="Time range">
@@ -75,7 +73,7 @@
     </section>
 
     <section id="compare-panel" class="tab-panel" data-panel="compare" hidden>
-      <div class="page-heading"><div><h1>Compare sources</h1><p>Like-for-like provider observations. Values are never averaged.</p></div></div>
+      <div class="page-heading"><div><h1>Compare workbook values</h1><p>Normalized values from the connected Excel worksheet.</p></div></div>
       <section class="card filter-bar" aria-label="Comparison filters">
         <label>Fuel grade
           <select id="compare-grade"><option value="">All grades</option><option>VLSFO</option><option>HSFO</option><option>MGO</option></select>
@@ -84,10 +82,10 @@
         <span id="compare-count" class="muted"></span>
       </section>
       <section class="card table-card">
-        <div class="table-title"><div><h2>Provider comparison</h2><p>Spread is the absolute difference between available providers.</p></div></div>
+        <div class="table-title"><div><h2>Workbook values</h2><p>Prices and freshness from the selected Excel workbook.</p></div></div>
         <div class="table-scroll">
           <table id="compare-table"><caption class="sr-only">Bunker price comparison by port, fuel grade, and provider</caption>
-            <thead><tr><th data-sort="port">Port</th><th data-sort="grade">Grade</th><th class="numeric" data-sort="bulugo">Bulugo</th><th class="numeric" data-sort="oilpriceapi">OilPriceAPI</th><th class="numeric" data-sort="excel">Excel upload</th><th class="numeric" data-sort="spread">Spread</th><th data-sort="freshness">Freshness</th></tr></thead>
+            <thead><tr><th data-sort="port">Port</th><th data-sort="grade">Grade</th><th class="numeric" data-sort="excel">Excel workbook</th><th data-sort="freshness">Freshness</th></tr></thead>
             <tbody></tbody>
           </table>
         </div>
@@ -119,7 +117,7 @@
       </section>
       <div id="source-cards" class="source-grid"></div>
       <section class="card processing-card">
-        <div class="table-title"><div><h2>Processing details</h2><p id="last-run-copy">No provider refresh has run yet.</p></div><span id="last-run-status" class="status-chip">Waiting</span></div>
+        <div class="table-title"><div><h2>Processing details</h2><p id="last-run-copy">No workbook refresh has run yet.</p></div><span id="last-run-status" class="status-chip">Waiting</span></div>
       </section>
       <section class="card table-card source-table-card">
         <div class="table-title"><div><h2>Normalized observation preview</h2><p>Latest 200 stored observations; source timestamps are preserved.</p></div></div>
@@ -133,6 +131,6 @@
     </section>
   </main>
 
-  <footer class="site-footer"><span>Indicative prices only — not firm supplier quotes.</span><span>Upstream fetch target: every 30 minutes, subject to provider quotas.</span></footer>
+  <footer class="site-footer"><span>Indicative prices only — not firm supplier quotes.</span><span>Cloud workbook check target: every 5 minutes.</span></footer>
 </body>
 </html>

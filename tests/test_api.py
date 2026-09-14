@@ -1,25 +1,23 @@
 from datetime import timedelta
 
 from bunker_market.models import Observation, Port, ProviderState, db, utcnow
-from bunker_market.demo import seed_demo_data
 
 
 def seed_small(app):
     with app.app_context():
         now = utcnow()
         db.session.add(Port(code="SGSIN", name="Singapore", country="Singapore", region="Asia", priority=1))
-        for provider_id, name in (("bulugo", "Bulugo"), ("oilpriceapi", "OilPriceAPI")):
-            state = db.session.get(ProviderState, provider_id)
-            state.name = name
-            state.status = "current"
-            state.configured = True
-            state.last_success_at = now
-            for offset, price in ((1, 620), (0, 625 if provider_id == "bulugo" else 622)):
-                db.session.add(Observation(
-                    provider_id=provider_id, port_code="SGSIN", grade="VLSFO", price=price,
-                    source_time=now - timedelta(hours=offset), retrieved_at=now,
-                    provenance_url="https://example.test", source_label=name,
-                ))
+        state = db.session.get(ProviderState, "excel")
+        state.name = "Excel workbook"
+        state.status = "current"
+        state.configured = True
+        state.last_success_at = now
+        for offset, price in ((1, 620), (0, 625)):
+            db.session.add(Observation(
+                provider_id="excel", port_code="SGSIN", grade="VLSFO", price=price,
+                source_time=now - timedelta(hours=offset), retrieved_at=now,
+                provenance_url="upload://excel", source_label="Excel workbook",
+            ))
         db.session.commit()
 
 
@@ -32,11 +30,11 @@ def test_dashboard_comparison_and_sources(app, client):
     seed_small(app)
     dashboard = client.get("/api/dashboard?port=SGSIN&grade=VLSFO&range=7D").json
     assert dashboard["selectedPort"]["code"] == "SGSIN"
-    assert dashboard["ports"][0]["grades"][0]["providers"]["bulugo"]["delta"] == 5
+    assert dashboard["ports"][0]["grades"][0]["providers"]["excel"]["delta"] == 5
     comparison = client.get("/api/compare?grades=VLSFO").json
-    assert comparison["rows"][0]["spread"] == 3
+    assert comparison["rows"][0]["providers"]["excel"]["price"] == 625
     sources = client.get("/api/sources").json
-    assert len(sources["preview"]) == 4
+    assert len(sources["preview"]) == 2
 
 
 def test_refresh_requires_csrf(client):
@@ -58,8 +56,5 @@ def test_html_contains_required_tabs_and_accessible_chart(client):
     assert "Upload an Excel price file" in html
 
 
-def test_demo_rows_remain_truthfully_labelled(app, client):
-    with app.app_context():
-        seed_demo_data()
-        assert Observation.query.filter_by(synthetic=True).count() > 0
-    assert client.get("/api/dashboard").json["mode"] == "demo"
+def test_dashboard_is_empty_until_workbook_is_connected(client):
+    assert client.get("/api/dashboard").json["mode"] == "empty"

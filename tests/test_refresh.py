@@ -6,8 +6,8 @@ from bunker_market.refresh import perform_refresh
 
 
 class WorkingAdapter:
-    provider_id = "bulugo"
-    display_name = "Bulugo"
+    provider_id = "excel"
+    display_name = "Excel workbook"
     configured = True
 
     def fetch(self):
@@ -19,8 +19,8 @@ class WorkingAdapter:
 
 
 class FailingAdapter:
-    provider_id = "bulugo"
-    display_name = "Bulugo"
+    provider_id = "excel"
+    display_name = "Excel workbook"
     configured = True
 
     def fetch(self):
@@ -30,7 +30,7 @@ class FailingAdapter:
 
 def test_refresh_inserts_then_retains_last_good_on_failure(app, monkeypatch):
     with app.app_context():
-        state = db.session.get(ProviderState, "bulugo")
+        state = db.session.get(ProviderState, "excel")
         state.configured = True
         state.daily_quota = 100
         state.next_allowed_at = None
@@ -39,10 +39,10 @@ def test_refresh_inserts_then_retains_last_good_on_failure(app, monkeypatch):
         assert result["inserted"] == 1
         assert Observation.query.count() == 1
 
-        state = db.session.get(ProviderState, "bulugo")
+        state = db.session.get(ProviderState, "excel")
         state.next_allowed_at = None
         monkeypatch.setattr("bunker_market.refresh.build_adapters", lambda: [(FailingAdapter(), 100)])
         result = perform_refresh(force=True)
         assert result["status"] == "failed"
         assert Observation.query.count() == 1
-        assert db.session.get(ProviderState, "bulugo").status == "unavailable"
+        assert db.session.get(ProviderState, "excel").status == "unavailable"

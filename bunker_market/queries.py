@@ -6,8 +6,8 @@ from flask import current_app, session
 from .models import CloudWorkbookState, Observation, Port, ProviderState, RefreshRun, UploadState, db, utcnow
 
 
-PROVIDER_ORDER = ["bulugo", "oilpriceapi", "excel"]
-PROVIDER_NAMES = {"bulugo": "Bulugo", "oilpriceapi": "OilPriceAPI", "excel": "Excel upload"}
+PROVIDER_ORDER = ["excel"]
+PROVIDER_NAMES = {"excel": "Excel workbook"}
 GRADES = ["VLSFO", "HSFO", "MGO"]
 
 
@@ -29,7 +29,7 @@ def freshness(source_time, stale_upstream=False):
 
 
 def _latest_and_previous():
-    observations = Observation.query.order_by(Observation.source_time.desc()).all()
+    observations = Observation.query.filter(Observation.provider_id.in_(PROVIDER_ORDER)).order_by(Observation.source_time.desc()).all()
     grouped = defaultdict(list)
     for obs in observations:
         grouped[(obs.port_code, obs.grade, obs.provider_id)].append(obs)
@@ -123,8 +123,8 @@ def dashboard_payload(port_code=None, grade="VLSFO", range_name="7D"):
             }
         )
 
-    has_real_data = Observation.query.filter_by(synthetic=False).first() is not None
-    has_demo_data = Observation.query.filter_by(synthetic=True).first() is not None
+    has_real_data = Observation.query.filter(Observation.provider_id.in_(PROVIDER_ORDER), Observation.synthetic.is_(False)).first() is not None
+    has_demo_data = Observation.query.filter(Observation.provider_id.in_(PROVIDER_ORDER), Observation.synthetic.is_(True)).first() is not None
     mode = "mixed" if has_real_data and has_demo_data else "live" if has_real_data else "demo"
     return {
         "mode": mode,
@@ -171,7 +171,7 @@ def compare_payload(port_codes=None, grades=None):
 
 
 def sources_payload():
-    states = ProviderState.query.order_by(ProviderState.name).all()
+    states = ProviderState.query.filter(ProviderState.id.in_(PROVIDER_ORDER)).order_by(ProviderState.name).all()
     provider_rows = []
     for state in states:
         provider_rows.append(
@@ -191,7 +191,7 @@ def sources_payload():
             }
         )
     observations = (
-        Observation.query.order_by(Observation.source_time.desc(), Observation.id.desc())
+        Observation.query.filter(Observation.provider_id.in_(PROVIDER_ORDER)).order_by(Observation.source_time.desc(), Observation.id.desc())
         .limit(200)
         .all()
     )

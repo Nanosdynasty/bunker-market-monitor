@@ -7,45 +7,25 @@ from sqlalchemy.exc import IntegrityError
 
 from .models import Observation, Port, ProviderState, RefreshLease, RefreshRun, db, utcnow
 from .normalization import port_identity
-from .providers import BulugoAdapter, OilPriceAPIAdapter
-from .providers.base import ProviderError
 
 
 LEASE_SECONDS = 120
 
 
 def build_adapters():
-    config = current_app.config
-    return [
-        (
-            BulugoAdapter(
-                config["BULUGO_API_KEY"],
-                config["BULUGO_API_URL"],
-                config["PROVIDER_TIMEOUT_SECONDS"],
-            ),
-            config["BULUGO_DAILY_QUOTA"],
-        ),
-        (
-            OilPriceAPIAdapter(
-                config["OILPRICEAPI_KEY"],
-                config["OILPRICEAPI_URL"],
-                config["PROVIDER_TIMEOUT_SECONDS"],
-            ),
-            config["OILPRICEAPI_DAILY_QUOTA"],
-        ),
-    ]
+    # Prices are sourced exclusively from the connected Excel workbook.
+    return []
 
 
 def ensure_provider_states() -> None:
-    for adapter, quota in build_adapters():
-        state = db.session.get(ProviderState, adapter.provider_id)
-        if not state:
-            state = ProviderState(id=adapter.provider_id, name=adapter.display_name)
-            db.session.add(state)
-        state.configured = adapter.configured
-        state.daily_quota = quota
-        if not adapter.configured and state.status != "demo":
-            state.status = "not_configured"
+    state = db.session.get(ProviderState, "excel")
+    if not state:
+        state = ProviderState(id="excel", name="Excel workbook")
+        db.session.add(state)
+    state.configured = False
+    state.daily_quota = 0
+    if state.status not in {"current", "stale"}:
+        state.status = "not_configured"
     db.session.commit()
 
 

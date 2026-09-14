@@ -36,18 +36,6 @@ class Config:
     PROVIDER_TIMEOUT_SECONDS = int(os.getenv("PROVIDER_TIMEOUT_SECONDS", "15"))
     MAX_CONTENT_LENGTH = int(os.getenv("MAX_UPLOAD_BYTES", str(20 * 1024 * 1024)))
 
-    BULUGO_API_KEY = os.getenv("BULUGO_API_KEY", "")
-    BULUGO_API_URL = os.getenv(
-        "BULUGO_API_URL", "https://my.bulugo.com/api/v1/prices"
-    )
-    BULUGO_DAILY_QUOTA = int(os.getenv("BULUGO_DAILY_QUOTA", "100"))
-
-    OILPRICEAPI_KEY = os.getenv("OILPRICEAPI_KEY", "")
-    OILPRICEAPI_URL = os.getenv(
-        "OILPRICEAPI_URL", "https://api.oilpriceapi.com/v1/bunker-fuels/all"
-    )
-    OILPRICEAPI_DAILY_QUOTA = int(os.getenv("OILPRICEAPI_DAILY_QUOTA", "50"))
-
     SESSION_COOKIE_HTTPONLY = True
     SESSION_COOKIE_SAMESITE = "Lax"
     SESSION_COOKIE_SECURE = _bool("SESSION_COOKIE_SECURE", False)
