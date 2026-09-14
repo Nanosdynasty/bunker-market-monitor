@@ -14,7 +14,7 @@ services:
       - key: SECRET_KEY
         generateValue: true
       - key: DEMO_MODE
-        value: "true"
+        value: "false"
       - key: ENABLE_SCHEDULER
         value: "true"
       - key: REFRESH_INTERVAL_MINUTES
@@ -33,10 +33,6 @@ services:
         value: "5"
       - key: DATABASE_PATH
         value: /var/data/bunker-market-monitor.db
-      - key: BULUGO_API_KEY
-        sync: false
-      - key: OILPRICEAPI_KEY
-        sync: false
     disk:
       name: bunker-monitor-data
       mountPath: /var/data

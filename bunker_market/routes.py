@@ -147,7 +147,8 @@ def refresh_api():
     expected = session.get("csrf_token", "")
     if not supplied or not expected or not secrets.compare_digest(supplied, expected):
         return jsonify({"status": "error", "error": "Invalid refresh token"}), 403
-    result = perform_refresh(trigger="manual", force=False)
+    cloud_key = session.get("cloud_session_id")
+    result = refresh_workbook(cloud_key, force=True) if cloud_key and status(cloud_key).get("connected") else perform_refresh(trigger="manual", force=False)
     code = 409 if result["status"] == "already_running" else 200
     return jsonify(result), code
 
