@@ -57,7 +57,17 @@
   }
 
   async function api(path, options = {}) {
-    const response = await fetch(path, { credentials: "same-origin", ...options });
+    const controller = options.signal ? null : new AbortController();
+    const timeout = controller ? setTimeout(() => controller.abort(), 45000) : null;
+    let response;
+    try {
+      response = await fetch(path, { credentials: "same-origin", ...options, ...(controller ? { signal: controller.signal } : {}) });
+    } catch (error) {
+      if (error.name === "AbortError") throw new Error("The request timed out. Check Microsoft sign-in, permissions, and the workbook link, then try again.");
+      throw error;
+    } finally {
+      if (timeout) clearTimeout(timeout);
+    }
     const payload = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(payload.error || `Request failed (${response.status})`);
     return payload;
@@ -285,6 +295,8 @@
   async function cloudAction(path, body) {
     const message = path.includes("/link") ? "Checking Microsoft link…" : path.includes("/refresh") ? "Downloading and importing workbook…" : path.includes("/select") ? "Importing selected workbook…" : "Updating cloud connection…";
     feedback("cloud-feedback", message, "info");
+    const actionButtons = $$("#cloud-link-form button, #cloud-browse, #cloud-refresh, #cloud-disconnect");
+    actionButtons.forEach((button) => { button.disabled = true; });
     try {
       const result = await api(path, { method: "POST", headers: { "Content-Type": "application/json", "X-CSRF-Token": csrf }, body: body ? JSON.stringify(body) : undefined });
       renderCloudStatus(result);
@@ -295,6 +307,8 @@
     } catch (error) {
       feedback("cloud-feedback", error.message || "The Microsoft link could not be imported.", "error");
       announce(`Cloud workbook action failed: ${error.message}`);
+    } finally {
+      actionButtons.forEach((button) => { button.disabled = false; });
     }
   }
 
