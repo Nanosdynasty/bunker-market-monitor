@@ -18,7 +18,13 @@ class Config:
     PROJECT_ROOT = Path(__file__).resolve().parent.parent
     DEFAULT_DB = PROJECT_ROOT / "instance" / "bunker-market-monitor.db"
 
-    SECRET_KEY = os.getenv("SECRET_KEY", "local-development-only-change-me")
+    # App Service can expose an unset setting as an empty string.  Flask needs
+    # a non-empty key to sign the session cookie used by the CSRF token and
+    # Microsoft sign-in state.  Production deployments should always provide
+    # SECRET_KEY; this fallback keeps the health page and local smoke tests
+    # from failing with a generic 500 if the setting was accidentally left
+    # blank during initial setup.
+    SECRET_KEY = os.getenv("SECRET_KEY") or "local-development-only-change-me"
     SQLALCHEMY_DATABASE_URI = os.getenv(
         "DATABASE_URL",
         f"sqlite:///{os.getenv('DATABASE_PATH', str(DEFAULT_DB))}",
