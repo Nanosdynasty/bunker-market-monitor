@@ -34,6 +34,7 @@ jobs:
         env:
           DEMO_MODE: 'true'
           ENABLE_SCHEDULER: 'false'
+          PYTHONPATH: .
         run: pytest -q
 
   deploy:
