@@ -36,6 +36,29 @@ Before using this mode, register an app in Microsoft Entra ID with supported acc
 
 Set `MSAL_CLIENT_ID`, `MSAL_CLIENT_SECRET`, `MSAL_TENANT=common`, and the matching `MSAL_REDIRECT_URI` as service environment variables. On Azure, set `DATABASE_PATH=/home/data/bunker-market-monitor.db` and enable **Always On**. On Render, use the persistent disk path from `render.yaml`. A restart clears in-memory token caches, so users may need to sign in again.
 
+### Optional Azure App Service Authentication (Easy Auth)
+
+The repository also includes `bunker_market/app_service_auth.py` for an IT
+team that wants Azure App Service Authentication to enforce an organization or
+group boundary before Flask handles requests. It is disabled by default. Only
+enable it after App Service **Authentication** is configured with Microsoft as
+the identity provider:
+
+```ini
+APP_SERVICE_AUTH_ENABLED=true
+EXPECTED_ENTRA_TENANT_ID=<tenant GUID>
+ALLOWED_EMAIL_DOMAIN=example.com
+AUTHORIZED_GROUP_OBJECT_ID=<group object GUID>
+TRUST_APP_SERVICE_IDENTITY_HEADERS=true
+```
+
+Azure Easy Auth validates the token and supplies the `X-MS-CLIENT-PRINCIPAL`
+claims header; Flask then checks the tenant, email domain, group, and user
+object ID. `/health`, `/ready`, and `/healthz` remain available for probes.
+For a simple deployment, leave this disabled and use the built-in
+`/auth/login` MSAL flow, which is also the local-development flow. Never trust
+the claims header from an untrusted proxy.
+
 The workbook must be saved and fully synced to OneDrive/SharePoint before a change is visible. Excel formulas are not executed by this app; it reads the values cached by Excel at the last save. A local `C:\...` path cannot be watched by Azure.
 
 ## Important workbook note

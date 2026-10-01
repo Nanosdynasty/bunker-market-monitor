@@ -7,6 +7,7 @@ from sqlalchemy.exc import IntegrityError
 
 from .models import Observation, Port, ProviderState, RefreshLease, RefreshRun, db, utcnow
 from .normalization import port_identity
+from .providers.base import ProviderError
 
 
 LEASE_SECONDS = 120
@@ -173,6 +174,10 @@ def perform_refresh(trigger: str = "manual", force: bool = False) -> dict:
         run.status = "partial" if errors and total_inserted else "failed" if errors else "complete"
         run.error_summary = "; ".join(errors) or None
         db.session.commit()
+        if not results:
+            state = db.session.get(ProviderState, "excel")
+            if state:
+                results.append({"provider": "excel", "status": state.status})
         return {"status": run.status, "inserted": total_inserted, "providers": results}
     finally:
         _release_lease(owner)

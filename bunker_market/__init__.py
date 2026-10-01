@@ -10,6 +10,7 @@ from .models import db
 from .refresh import ensure_provider_states, perform_refresh
 from .graph_connector import refresh_all_cloud
 from .routes import bp
+from .app_service_auth import init_app_service_auth
 
 
 scheduler = BackgroundScheduler(daemon=True, timezone="UTC")
@@ -29,6 +30,8 @@ def create_app(test_config=None):
     Path(app.instance_path).mkdir(parents=True, exist_ok=True)
     db.init_app(app)
     app.register_blueprint(bp)
+    if app.config.get("APP_SERVICE_AUTH_ENABLED"):
+        init_app_service_auth(app)
 
     with app.app_context():
         db.create_all()

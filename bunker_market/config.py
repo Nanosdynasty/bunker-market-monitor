@@ -46,3 +46,11 @@ class Config:
     MSAL_REDIRECT_URI = os.getenv("MSAL_REDIRECT_URI", "http://localhost:5070/auth/callback")
     GRAPH_SCOPES = ["User.Read", "Files.Read", "offline_access"]
     GRAPH_REFRESH_INTERVAL_MINUTES = int(os.getenv("GRAPH_REFRESH_INTERVAL_MINUTES", "5"))
+
+    # Optional Azure App Service Authentication (Easy Auth) authorization.
+    # Disabled by default because the app's normal login is MSAL/Graph.
+    APP_SERVICE_AUTH_ENABLED = _bool("APP_SERVICE_AUTH_ENABLED", False)
+    EXPECTED_ENTRA_TENANT_ID = os.getenv("EXPECTED_ENTRA_TENANT_ID", "")
+    ALLOWED_EMAIL_DOMAIN = os.getenv("ALLOWED_EMAIL_DOMAIN", "")
+    AUTHORIZED_GROUP_OBJECT_ID = os.getenv("AUTHORIZED_GROUP_OBJECT_ID", "")
+    TRUST_APP_SERVICE_IDENTITY_HEADERS = _bool("TRUST_APP_SERVICE_IDENTITY_HEADERS", False)
