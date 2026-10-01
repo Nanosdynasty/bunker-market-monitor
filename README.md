@@ -101,6 +101,8 @@ The app reads the values saved by Excel, including cached formula results. It do
 5. Enable Always On, restart the App Service, and verify `/health` and `/ready`.
 6. Open **Sources → Connect Microsoft account**, select the OneDrive/SharePoint workbook, and choose its worksheet.
 
+The repository includes `.github/workflows/azure-webapp.yml`. Add the App Service publish profile as a GitHub Actions repository secret named `AZUREAPPSERVICE_PUBLISHPROFILE` under **Settings → Secrets and variables → Actions → New repository secret**. Download it from Azure App Service **Overview → Download publish profile** and paste its contents into that secret. The workflow runs tests first and deploys only when they pass. Never commit the publish profile or any Entra secret.
+
 Azure stores normalized observations and workbook metadata in SQLite at `/home/data`. Tokens are cached in memory, so a restart may require sign-in again. Keep one worker because the scheduler runs in the web process.
 
 ## Tests
