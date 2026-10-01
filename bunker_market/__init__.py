@@ -28,6 +28,12 @@ def create_app(test_config=None):
         app.config.update(test_config)
 
     Path(app.instance_path).mkdir(parents=True, exist_ok=True)
+    database_uri = app.config.get("SQLALCHEMY_DATABASE_URI", "")
+    if database_uri.startswith("sqlite:///") and not database_uri.endswith(":memory:"):
+        # Azure's persistent /home/data directory may not exist on a fresh app
+        # or after a restart. Create it before SQLAlchemy opens SQLite.
+        database_path = Path(database_uri.removeprefix("sqlite:///"))
+        database_path.parent.mkdir(parents=True, exist_ok=True)
     db.init_app(app)
     app.register_blueprint(bp)
     if app.config.get("APP_SERVICE_AUTH_ENABLED"):
