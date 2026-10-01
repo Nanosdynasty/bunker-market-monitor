@@ -16,6 +16,17 @@ from .graph_connector import auth_url, disconnect, list_files, redeem_code, refr
 bp = Blueprint("main", __name__)
 
 
+def _graph_error(exc):
+    """Return a useful HTTP status for a user-actionable Graph error."""
+    if isinstance(exc, PermissionError):
+        return 401
+    if isinstance(exc, FileNotFoundError):
+        return 404
+    if isinstance(exc, ValueError):
+        return 422
+    return 502
+
+
 def _csrf_token():
     if "csrf_token" not in session:
         session["csrf_token"] = secrets.token_urlsafe(24)
@@ -71,7 +82,7 @@ def graph_select_api():
         item = {"id": data["itemId"], "parentReference": {"driveId": data["driveId"]}, "name": data.get("name")}
         return jsonify(select_item(session_key(session), item))
     except Exception as exc:
-        return jsonify({"status": "error", "error": str(exc)}), 502
+        return jsonify({"status": "error", "error": str(exc)}), _graph_error(exc)
 
 
 @bp.post("/api/graph/link")
@@ -84,14 +95,15 @@ def graph_link_api():
     try:
         return jsonify(select_link(session_key(session), link))
     except Exception as exc:
-        return jsonify({"status": "error", "error": str(exc)}), 502
+        return jsonify({"status": "error", "error": str(exc)}), _graph_error(exc)
 
 
 @bp.post("/api/graph/refresh")
 def graph_refresh_api():
     if request.headers.get("X-CSRF-Token", "") != session.get("csrf_token", ""):
         return jsonify({"status": "error", "error": "Invalid refresh token"}), 403
-    return jsonify(refresh_workbook(session_key(session), force=True))
+    result = refresh_workbook(session_key(session), force=True)
+    return jsonify(result), 409 if result.get("status") == "already_running" else 200
 
 
 @bp.post("/api/graph/worksheet")

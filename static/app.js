@@ -28,6 +28,14 @@
     $("#live-message").textContent = message;
   }
 
+  function feedback(id, message, kind = "info") {
+    const target = $(`#${id}`);
+    if (!target) return;
+    target.hidden = !message;
+    target.className = `feedback feedback-${kind}`;
+    target.textContent = message || "";
+  }
+
   function formatDate(value, withTime = true) {
     if (!value) return "Never";
     const date = new Date(value);
@@ -69,7 +77,7 @@
   function statusText(status) {
     return ({
       current: "Current", demo: "Demo data", mixed: "Excel + demo", empty: "No workbook", stale: "Stale", partial: "Partial",
-      rate_limited: "Rate limited", unavailable: "Unavailable", not_configured: "Not configured",
+      rate_limited: "Rate limited", unavailable: "Unavailable", permission_denied: "Permission denied", missing: "File not found", not_configured: "Not configured",
       complete: "Completed", failed: "Failed", running: "Running", cooldown: "Cooldown",
     })[status] || "Waiting";
   }
@@ -270,13 +278,24 @@
     const target = $("#cloud-status");
     if (!cloud || !cloud.connected) { target.innerHTML = "<p>Not connected. Connect Microsoft account to select a workbook.</p>"; return; }
     const worksheet = cloud.worksheets?.length ? `<select id="cloud-worksheet" aria-label="Cloud workbook worksheet">${cloud.worksheets.map((name) => `<option ${name === cloud.worksheet ? "selected" : ""}>${esc(name)}</option>`).join("")}</select>` : esc(cloud.worksheet || "—");
-    target.innerHTML = `<dl><div><dt>File</dt><dd>${esc(cloud.fileName || "—")}</dd></div><div><dt>Path</dt><dd>${esc(cloud.filePath || "—")}</dd></div><div><dt>Worksheet</dt><dd>${worksheet}</dd></div><div><dt>Cloud modified</dt><dd>${formatDate(cloud.lastModified)}</dd></div><div><dt>Last check</dt><dd>${formatDate(cloud.lastChecked)}</dd></div><div><dt>Status</dt><dd><span class="status-chip ${statusClass(cloud.status)}">${statusText(cloud.status)}</span></dd></div></dl>${cloud.changed ? "<p>Changed workbook detected and imported.</p>" : ""}${cloud.error ? `<p class="source-error">${esc(cloud.error)}</p>` : ""}`;
+    target.innerHTML = `<dl><div><dt>File</dt><dd>${esc(cloud.fileName || "—")}</dd></div><div><dt>Path</dt><dd>${esc(cloud.filePath || "—")}</dd></div><div><dt>Worksheet</dt><dd>${worksheet}</dd></div><div><dt>Cloud modified</dt><dd>${formatDate(cloud.lastModified)}</dd></div><div><dt>Last check</dt><dd>${formatDate(cloud.lastChecked)}</dd></div><div><dt>Status</dt><dd><span class="status-chip ${statusClass(cloud.status)}">${statusText(cloud.status)}</span></dd></div></dl>${cloud.changed ? "<p>Changed workbook detected and imported.</p>" : ""}${cloud.records ? `<p>Imported ${cloud.records} price records (${esc(cloud.layout || "detected layout")}).</p>` : ""}${cloud.formulaCacheMissing || cloud.excelErrors || cloud.skippedCells ? `<p class="source-error">Warnings: ${cloud.skippedCells || 0} skipped values, ${cloud.formulaCacheMissing || 0} formulas without saved results, ${cloud.excelErrors || 0} Excel errors.</p>` : ""}${cloud.error ? `<p class="source-error">${esc(cloud.error)}</p>` : ""}`;
     $("#cloud-worksheet")?.addEventListener("change", (event) => cloudAction("/api/graph/worksheet", { worksheet: event.target.value }));
   }
 
   async function cloudAction(path, body) {
-    try { const result = await api(path, { method: "POST", headers: { "Content-Type": "application/json", "X-CSRF-Token": csrf }, body: body ? JSON.stringify(body) : undefined }); renderCloudStatus(result); await Promise.all([loadDashboard(), loadCompare(), loadSources()]); }
-    catch (error) { announce(`Cloud workbook action failed: ${error.message}`); }
+    const message = path.includes("/link") ? "Checking Microsoft link…" : path.includes("/refresh") ? "Downloading and importing workbook…" : path.includes("/select") ? "Importing selected workbook…" : "Updating cloud connection…";
+    feedback("cloud-feedback", message, "info");
+    try {
+      const result = await api(path, { method: "POST", headers: { "Content-Type": "application/json", "X-CSRF-Token": csrf }, body: body ? JSON.stringify(body) : undefined });
+      renderCloudStatus(result);
+      await Promise.all([loadDashboard(), loadCompare(), loadSources()]);
+      const failed = ["permission_denied", "missing", "unavailable"].includes(result.status) || result.error;
+      feedback("cloud-feedback", failed ? (result.error || "The workbook could not be imported.") : result.connected ? `Imported ${result.fileName || "workbook"}. Check the Dashboard for prices.` : "Cloud workbook disconnected.", failed ? "error" : result.connected ? "success" : "info");
+      announce(failed ? `Cloud workbook import failed: ${result.error || result.status}` : result.connected ? `Workbook ${result.fileName || "selected"} imported` : "Cloud workbook disconnected");
+    } catch (error) {
+      feedback("cloud-feedback", error.message || "The Microsoft link could not be imported.", "error");
+      announce(`Cloud workbook action failed: ${error.message}`);
+    }
   }
 
   async function browseCloud() {
@@ -307,19 +326,22 @@
   async function uploadExcel(event) {
     event.preventDefault();
     const input = $("#excel-file");
-    if (!input.files.length) return;
+    if (!input.files.length) { feedback("upload-feedback", "Choose an .xlsx workbook first.", "error"); return; }
     const button = $("#excel-upload-button");
     const form = new FormData();
     form.append("file", input.files[0]);
     button.disabled = true;
     button.textContent = "Processing…";
+    feedback("upload-feedback", "Uploading and importing workbook…", "info");
     announce("Uploading and processing the Excel workbook");
     try {
       const result = await api("/api/uploads/excel", { method: "POST", headers: { "X-CSRF-Token": csrf }, body: form });
       input.value = "";
       await Promise.all([loadDashboard(), loadCompare(), loadSources()]);
+      feedback("upload-feedback", `Imported ${result.observations} records from ${result.worksheet}. Dashboard updated.`, "success");
       announce(`${result.fileName} imported: ${result.observations} observations from ${result.worksheet}`);
     } catch (error) {
+      feedback("upload-feedback", error.message || "The workbook could not be imported.", "error");
       announce(`Excel upload failed. Previous data remains visible. ${error.message}`);
       await loadSources();
     } finally {

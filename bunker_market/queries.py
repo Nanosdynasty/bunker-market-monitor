@@ -254,5 +254,10 @@ def sources_payload():
             "lastSuccess": iso(cloud.last_success) if cloud else None,
             "changed": bool(cloud.changed) if cloud else False,
             "error": cloud.last_error if cloud else None,
+            "records": upload.rows_received if cloud and upload and cloud.file_name == upload.file_name else 0,
+            "layout": upload.layout if cloud and upload and cloud.file_name == upload.file_name else None,
+            "skippedCells": upload.skipped_cells if cloud and upload and cloud.file_name == upload.file_name else 0,
+            "formulaCacheMissing": upload.formula_cache_missing if cloud and upload and cloud.file_name == upload.file_name else 0,
+            "excelErrors": upload.excel_errors if cloud and upload and cloud.file_name == upload.file_name else 0,
         } if cloud else {"connected": False, "status": "waiting", "fileName": None, "filePath": None, "worksheet": None, "worksheets": [], "lastModified": None, "lastChecked": None, "lastSuccess": None, "changed": False, "error": None},
     }

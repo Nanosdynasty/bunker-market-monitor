@@ -6,6 +6,7 @@ import threading
 import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
+from urllib.parse import urlparse
 
 import msal
 import requests
@@ -94,8 +95,20 @@ def list_files(key, parent_id=None):
 
 
 def resolve_link(key, link):
+    parsed = urlparse(link)
+    host = (parsed.hostname or "").lower()
+    if parsed.scheme not in {"http", "https"} or not host:
+        raise ValueError("Paste a valid OneDrive or SharePoint HTTPS link")
+    if not any(marker in host for marker in ("1drv.ms", "onedrive", "sharepoint", "office.com")):
+        raise ValueError("The link must be from OneDrive or SharePoint")
     encoded = base64.urlsafe_b64encode(link.encode()).decode().rstrip("=")
     item = _graph("GET", f"/shares/u!{encoded}/driveItem?$select=id,name,size,file,parentReference,lastModifiedDateTime,eTag", key).json()
+    name = (item.get("name") or "").lower()
+    if not name.endswith(".xlsx"):
+        raise ValueError("The selected Microsoft link is not an .xlsx workbook")
+    parent = item.get("parentReference") or {}
+    if not item.get("id") or not parent.get("driveId"):
+        raise ValueError("Microsoft Graph did not return a usable drive ID and file ID")
     return item
 
 
@@ -126,6 +139,10 @@ def _apply_item(state, item):
 
 
 def select_item(key, item):
+    if not (item.get("name") or "").lower().endswith(".xlsx"):
+        raise ValueError("Only .xlsx workbooks can be connected")
+    if not item.get("id") or not (item.get("parentReference") or {}).get("driveId"):
+        raise ValueError("Microsoft Graph did not return a usable drive ID and file ID")
     state = _state(key)
     _apply_item(state, item)
     state.status = "selected"

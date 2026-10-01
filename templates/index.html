@@ -99,6 +99,7 @@
         <div class="upload-form"><a class="button button-primary" href="/auth/login">Connect Microsoft account</a><button id="cloud-browse" class="button button-secondary" type="button">Browse OneDrive</button><button id="cloud-refresh" class="button button-secondary" type="button">Check cloud file</button><button id="cloud-disconnect" class="button button-secondary" type="button">Disconnect</button></div>
         <form id="cloud-link-form" class="upload-form"><label class="file-picker"><span>OneDrive / SharePoint link</span><input id="cloud-link" type="url" placeholder="https://..." required></label><button class="button button-secondary" type="submit">Use link</button></form>
         <div id="cloud-status" class="upload-diagnostics" aria-live="polite"><p>Not connected. Connect Microsoft account to select a workbook.</p></div>
+        <div id="cloud-feedback" class="feedback" role="status" aria-live="polite" hidden></div>
         <div id="cloud-files" class="upload-diagnostics" hidden aria-live="polite"></div>
       </section>
       <section class="card upload-card" aria-labelledby="excel-upload-title">
@@ -113,6 +114,7 @@
         <div id="upload-diagnostics" class="upload-diagnostics" aria-live="polite">
           <p><strong>No workbook uploaded yet.</strong> The raw file is deleted after processing; normalized prices remain in this app’s database.</p>
         </div>
+        <div id="upload-feedback" class="feedback" role="status" aria-live="polite" hidden></div>
         <p class="upload-note">An upload is a snapshot. If the workbook changes on your computer, upload it again. A hosted app cannot continuously watch a folder on your PC.</p>
       </section>
       <div id="source-cards" class="source-grid"></div>
