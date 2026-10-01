@@ -104,7 +104,34 @@ The app reads the values saved by Excel, including cached formula results. It do
    use that exact hostname for `MSAL_REDIRECT_URI` and the Entra redirect URI.
 6. Open **Sources → Connect Microsoft account**, select the OneDrive/SharePoint workbook, and choose its worksheet.
 
-The repository includes `.github/workflows/azure-webapp.yml`. Add the App Service publish profile as a GitHub Actions repository secret named `AZUREAPPSERVICE_PUBLISHPROFILE` under **Settings → Secrets and variables → Actions → New repository secret**. Download it from Azure App Service **Overview → Download publish profile** and paste its contents into that secret. The workflow runs tests first and deploys only when they pass. Never commit the publish profile or any Entra secret.
+### GitHub Actions deployment
+
+When Azure Deployment Center is connected to the private repository, Azure creates
+`.github/workflows/main_bunker-price-monitor.yml` in GitHub and manages the Azure
+deployment credential for that workflow. This is the preferred setup for this
+prototype; no publish profile or Azure secret needs to be copied into the app
+repository. The workflow builds the app, runs the test suite, and deploys only
+when the build succeeds. Keep the repository private and do not add client
+secrets, publish profiles, or workbook files to Git.
+
+### First cloud-workbook test
+
+1. Open the App Service default domain and select **Sources**.
+2. Select **Connect Microsoft account** and complete Microsoft sign-in.
+3. Select **Browse OneDrive**, open the folder, and choose the `.xlsx` workbook.
+   A direct OneDrive/SharePoint link can be pasted instead.
+4. Choose a worksheet. The app shows saved cell values and imports normalized
+   bunker-price rows into the dashboard.
+5. Edit a value in Excel, save it, and wait until OneDrive/SharePoint reports the
+   file as synced. Use **Check cloud file** or **Refresh now**. The app compares
+   Graph `eTag`/`lastModifiedDateTime` first and downloads the workbook only when
+   it changed. A five-minute browser refresh is enabled by default.
+6. Confirm the Sources diagnostics show the selected file, worksheet, cloud
+   modification time, last successful load, and changed-workbook indicator.
+
+If the workbook has not been saved or cloud sync is still pending, the previous
+good view remains visible and is marked stale. The app reads cached values saved
+by Excel; it does not execute Reuters Workspace formulas or refresh Reuters.
 
 Azure stores normalized observations and workbook metadata in SQLite at `/home/data`. Tokens are cached in memory, so a restart may require sign-in again. Keep one worker because the scheduler runs in the web process.
 
